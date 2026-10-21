@@ -1,26 +1,36 @@
 <div align="center">
 
-<img src="./.github/readme-icon.svg" alt="" width="60" height="60">
+  <img width="200" alt="YTM Hybrid Logo" src="https://github.com/user-attachments/assets/975498a0-677a-4ba3-b77e-3580e16b9652" />
 
-<h1>YTM Hybrid</h1>
+  <h1>YTM Hybrid</h1>
 
-<p align="center">
-  <a href="https://github.com/egehansimarikk/YtmHybridClient">Repository</a>
-  ·
-  <a href="https://github.com/egehansimarikk/YtmHybridClient/releases">Releases</a>
-  ·
-  <a href="https://github.com/egehansimarikk/YtmHybridClient/issues">Issues</a>
-</p>
+  <p>
+    <strong>Native YouTube Music Desktop Client, built with Rust & GPUI 🚀</strong>
+  </p>
 
-[![Build](https://img.shields.io/github/actions/workflow/status/egehansimarikk/YtmHybridClient/release.yml?style=flat-square&label=build)](https://github.com/egehansimarikk/YtmHybridClient/actions/workflows/release.yml)
-[![License](https://img.shields.io/github/license/egehansimarikk/YtmHybridClient?style=flat-square&label=license&cacheSeconds=3600)](./COPYING)
+  <p>
+    <a href="https://github.com/egehansimarikk/YtmHybridClient/releases"><strong>Download Releases »</strong></a>
+    <br />
+    <a href="https://github.com/egehansimarikk/YtmHybridClient/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/egehansimarikk/YtmHybridClient/issues">Request Feature</a>
+  </p>
 
-### Native YouTube Music Desktop Client, built with Rust and GPUI
-
-A dedicated, native desktop client for YouTube Music with a focus on performance and user experience.
+  <p>
+    <a href="https://github.com/egehansimarikk/YtmHybridClient/blob/main/LICENSE">
+      <img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License: GPL-3.0" />
+    </a>
+    <a href="https://github.com/egehansimarikk/YtmHybridClient/releases">
+      <img src="https://img.shields.io/badge/Version-v0.1.0-red.svg" alt="Version 0.1.0" />
+    </a>
+    <a href="https://rust-lang.org">
+      <img src="https://img.shields.io/badge/Made%20with-Rust-orange.svg" alt="Made with Rust" />
+    </a>
+  </p>
 
 </div>
 
+---
 > [!IMPORTANT]
 > **YTM Hybrid is not a piracy tool.**
 >
