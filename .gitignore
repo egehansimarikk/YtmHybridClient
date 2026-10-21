@@ -1,0 +1,46 @@
+# --- Rust / Cargo ---
+/target
+Cargo.lock.msvc
+**/*.rs.bk
+
+# --- Nix & direnv ---
+/result
+/result-*
+/.direnv
+.envrc.override
+.envrc.local
+
+# --- Flatpak & Build Artifacts ---
+/flatpak/flatpak-repo
+/flatpak/cargo-sources.json
+/flatpak/*.flatpak
+/flatpak/flatpak
+/.flatpak-builder
+.flatpak-builder/
+
+# --- Python & Cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# --- IDEs & Editors ---
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# --- AI & Tools ---
+/.claude
+/vendor
+
+# --- OS / System Files ---
+.DS_Store
+Thumbs.db
