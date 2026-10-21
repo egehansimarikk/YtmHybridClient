@@ -5,7 +5,7 @@ Thank you for your interest in contributing to YTM Hybrid!
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR-USERNAME/YtmHybridClient.git`
+2. Clone your fork: `git clone https://github.com/egehansimarikk/YtmHybridClient.git`
 3. Create a new branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Test your changes: `cargo check --workspace && cargo test --workspace`
