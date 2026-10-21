@@ -88,22 +88,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          case "$RUNNER_OS" in
-            macOS)
-              cp \
-                "target/$TARGET/release/ytm-hybrid" \
-                "dist/ytm-hybrid-$TARGET"
-              ;;
-            *)
-              cp \
-                "target/$TARGET/release/ytm-hybrid" \
-                "dist/ytm-hybrid-$VERSION-$TARGET"
-              ;;
-          esac
+          cp \
+            "target/$TARGET/release/ytm-hybrid" \
+            "dist/ytm-hybrid-$VERSION-$TARGET"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: "${{ runner.os == 'macOS' && format('darwin-{0}', matrix.target) || format('release-{0}', matrix.target) }}"
+          name: "ytm-hybrid-${{ matrix.target }}"
           path: dist/*
           if-no-files-found: error
 
@@ -140,7 +131,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: "release-${{ matrix.target }}"
+          name: "ytm-hybrid-${{ matrix.target }}"
           path: staged
 
       - name: Install cargo-deb
@@ -196,7 +187,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: "linux-bundles-${{ matrix.target == 'x86_64-unknown-linux-gnu' && 'x86_64' || 'aarch64' }}"
+          name: "linux-bundles-${{ matrix.target }}"
           path: dist/*
           if-no-files-found: error
 
@@ -227,7 +218,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: darwin-*
+          pattern: ytm-hybrid-*-apple-darwin
           path: darwin
           merge-multiple: true
 
@@ -281,7 +272,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: release-macos
+          name: "ytm-hybrid-macos"
           path: dist/*
           if-no-files-found: error
 
@@ -296,7 +287,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: release-*
+          pattern: ytm-hybrid-*
           path: dist
           merge-multiple: true
 
