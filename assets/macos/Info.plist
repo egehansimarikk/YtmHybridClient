@@ -5,17 +5,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>sonora</string>
+	<string>ytm-hybrid</string>
 	<key>CFBundleIconFile</key>
-	<string>sonora</string>
+	<string>icon</string>
 	<key>CFBundleIdentifier</key>
-	<string>dev.nolight.sonora</string>
+	<string>com.egehansimarik.ytmhybrid</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Sonora</string>
+	<string>YTM Hybrid</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sonora</string>
+	<string>YTM Hybrid</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

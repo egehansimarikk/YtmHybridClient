@@ -211,3 +211,25 @@ opt-level = 2
 [profile.dev.package."*"]
 debug = false
 opt-level = 2
+
+# ==============================================================================
+# Packaging Configuration
+# ==============================================================================
+
+[package.metadata.deb]
+name = "ytm-hybrid"
+maintainer = "Egehan Şımarık <egehan_smrk@github.com>"
+copyright = "2026, Egehan Şımarık"
+license-file = ["LICENSE", "444"]
+extended-description = "Native YouTube Music Desktop Client built with Rust & GPUI."
+section = "sound"
+priority = "optional"
+assets = [
+    ["target/release/ytm-hybrid", "usr/bin/ytm-hybrid", "755"],
+    ["assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png", "usr/share/icons/hicolor/256x256/apps/ytm-hybrid.png", "644"],
+    ["assets/linux/ytm-hybrid.desktop", "usr/share/applications/ytm-hybrid.desktop", "644"],
+]
+depends = ["$auto"]
+
+[package.metadata.deb.install-service]
+systemd = "assets/linux/ytm-hybrid@.service"
