@@ -52,7 +52,7 @@
 - Customizable themes, fonts, icons, transparency, and blur effects
 - Local file playback support
 - Native performance with GPUI framework
-- Cross-platform: macOS, Windows, Linux
+- Cross-platform: macOS, Windows, Linux (currently only for Windows)
 
 ## Installation
 
