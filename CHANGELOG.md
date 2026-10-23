@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-23
+
+### Changed
+
+- Spatial Audio simplified to BitChord-style BS2B Binaural Crossfeed
+- Removed Custom HRTF and Dolby Atmos Passthrough modes
+- Removed SpatialAudioProcessor wrapper from audio pipeline
+- rodio now receives raw PCM directly from decoder
+
 ## [0.1.0] - 2026-10-20
 
 ### Added
@@ -25,5 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Queue management with shuffle and repeat modes
 - Sleep timer functionality
 
-[Unreleased]: https://github.com/egehansimarikk/YtmHybridClient/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/egehansimarikk/YtmHybridClient/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/egehansimarikk/YtmHybridClient/releases/tag/v0.2.0
 [0.1.0]: https://github.com/egehansimarikk/YtmHybridClient/releases/tag/v0.1.0

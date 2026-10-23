@@ -514,7 +514,11 @@ fn attach(chain: &Chain, device: &Device) -> rodio::Player {
     let applied = chain.volume.get();
     let tap = chain.spectrum.attach();
     let (sink, source) = rodio::Player::new();
+
+    // BitChord philosophy: 100% clean native passthrough
+    // Audio passes directly from decoder to output without any spatial DSP wrappers
     let equalized = Equalized::new(source, chain.equalizer.clone());
+
     device.add(SmoothGain::new(equalized, chain.volume.clone(), applied, RAMP).with_tap(tap));
     sink
 }
@@ -538,6 +542,7 @@ fn at_rate(
         })
         .find_map(|range| range.try_with_sample_rate(rate))
 }
+
 
 /// The sound server whose socket this session has, PipeWire first since it also answers on the
 /// PulseAudio socket.

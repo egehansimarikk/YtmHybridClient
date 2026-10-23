@@ -184,6 +184,7 @@ enum Slot {
     Equalizer,
     EqualizerPreset,
     EqualizerBands,
+    SpatialAudio,
     LyricsProviders,
     // LyricsPriority removed for YTM Hybrid
     Karaoke,
@@ -636,6 +637,11 @@ impl SettingsView {
                 slots.extend([Slot::Title("settings-group-lyrics"), Slot::LyricsProviders]);
                 // YTM Hybrid: Removed LyricsPriority section (YouTube Music + LrcLib only)
                 slots.extend([Slot::Karaoke, Slot::Romanized]);
+                // Spatial Audio section - single toggle only (BitChord native passthrough)
+                slots.extend([
+                    Slot::Title("settings-group-spatial-audio"),
+                    Slot::SpatialAudio,
+                ]);
                 slots
             }
             SettingsTab::Privacy => {
@@ -793,6 +799,7 @@ impl SettingsView {
                 t!("settings-equalizer-preset-detail"),
             ),
             Slot::EqualizerBands => (t!("settings-group-equalizer"), SharedString::default()),
+            Slot::SpatialAudio => (t!("settings-spatial-audio"), t!("settings-spatial-audio-detail")),
             Slot::LyricsProviders => (
                 t!("settings-lyrics-providers"),
                 t!("settings-lyrics-providers-detail"),
@@ -882,6 +889,7 @@ impl SettingsView {
                     + SECTION_GAP,
                 window,
             ),
+            Slot::SpatialAudio => snapped(standard_height(&theme), window),
             Slot::Widevine => snapped(self.widevine_height(&theme, window, cx), window),
             _ => snapped(standard_height(&theme), window),
         }
@@ -1003,6 +1011,7 @@ impl SettingsView {
             Slot::Equalizer => self.equalizer_row(cx).element,
             Slot::EqualizerPreset => self.equalizer_preset_row(cx).element,
             Slot::EqualizerBands => self.equalizer_bands_row(cx).element,
+            Slot::SpatialAudio => self.spatial_audio_row(cx).element,
             Slot::LyricsProviders => self.lyrics_providers_row(cx).element,
             // YTM Hybrid: LyricsPriority removed
             Slot::Karaoke => self.karaoke_lyrics_row(cx).element,
@@ -2418,6 +2427,26 @@ impl SettingsView {
                 .children(columns)
                 .into_any_element(),
         }
+    }
+
+    fn spatial_audio_row(&self, cx: &mut Context<Self>) -> Setting {
+        let theme = *cx.theme();
+        let muted = theme.muted_foreground;
+        let small = theme.text(Text::Small);
+        let on = self.playback.read(cx).spatial_audio();
+
+        self.row(
+            t!("settings-spatial-audio"),
+            t!("settings-spatial-audio-detail"),
+            muted,
+            small,
+            Switch::new("spatial-audio", on)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.playback
+                        .update(cx, |playback, cx| playback.set_spatial_audio(!on, cx));
+                }))
+                .into_any_element(),
+        )
     }
 
     fn sleep_row(&self, cx: &mut Context<Self>) -> Setting {

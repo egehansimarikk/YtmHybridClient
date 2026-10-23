@@ -1,5 +1,5 @@
 #define AppName "YTM Hybrid"
-#define AppVersion "0.1.0"
+#define AppVersion "0.2.0"
 #define AppPublisher "Egehan Şımarık"
 #define AppExeName "ytm-hybrid.exe"
 

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/yourusername/ytm-hybrid"
@@ -216,7 +216,7 @@ opt-level = 2
 # Packaging Configuration
 # ==============================================================================
 
-[package.metadata.deb]
+[workspace.metadata.deb]
 name = "ytm-hybrid"
 maintainer = "Egehan Şımarık <egehan_smrk@github.com>"
 copyright = "2026, Egehan Şımarık"
@@ -231,5 +231,5 @@ assets = [
 ]
 depends = ["$auto"]
 
-[package.metadata.deb.install-service]
+[workspace.metadata.deb.install-service]
 systemd = "assets/linux/ytm-hybrid@.service"

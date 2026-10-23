@@ -37,6 +37,11 @@ const OPEN_COALESCE: Duration = Duration::from_millis(250);
 
 fn main() {
     memory::tune();
+    // Tell Windows this process is "YTM Hybrid" so the system media transport
+    // controls popup, the taskbar and the Start menu show that name instead of
+    // "Unknown application". Must run before any window is created.
+    #[cfg(windows)]
+    set_app_user_model_id();
     if let Some(code) = webview::probed() {
         exit(code);
     }
@@ -544,6 +549,74 @@ unsafe extern "system" fn work_area(
 #[cfg(not(target_os = "windows"))]
 fn platform_handle(_window: &gpui::Window) -> Option<*mut std::ffi::c_void> {
     None
+}
+
+/// The AppUserModelID this process announces to Windows, so SMTC, the taskbar and the Start
+/// menu treat it as "YTM Hybrid" instead of "Unknown application". Set before any window opens.
+const APP_USER_MODEL_ID: &str = "YTMHybrid";
+
+#[cfg(windows)]
+fn set_app_user_model_id() {
+    use windows::core::HSTRING;
+    use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+    use windows::Win32::System::Registry::{
+        HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ,
+        REG_CREATE_KEY_DISPOSITION, RegCloseKey, RegCreateKeyExW, RegSetValueExW,
+    };
+
+    let app_id = HSTRING::from(APP_USER_MODEL_ID);
+    unsafe {
+        SetCurrentProcessExplicitAppUserModelID(&app_id).unwrap_or_else(|error| {
+            log::warn!("ytm-hybrid: cannot register AppUserModelID \"{APP_USER_MODEL_ID}\": {error}");
+        });
+    }
+    log::debug!("ytm-hybrid: registered AppUserModelID \"{APP_USER_MODEL_ID}\"");
+
+    // Windows reads the SMTC popup's app name from the AUMID's registry entry, so write it
+    // explicitly instead of relying on the version-resource fallback.
+    let subkey = HSTRING::from(format!(
+        "Software\\Classes\\AppUserModelID\\{APP_USER_MODEL_ID}"
+    ));
+    let name = HSTRING::from("DisplayName");
+    let value: Vec<u16> = "YTM Hybrid".encode_utf16().collect();
+
+    let mut hkey = HKEY(std::ptr::null_mut());
+    let mut disposition = REG_CREATE_KEY_DISPOSITION::default();
+    let created = unsafe {
+        RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            &subkey,  // &HSTRING implements Param<PCWSTR>
+            None,
+            None,
+            REG_OPTION_NON_VOLATILE,
+            KEY_SET_VALUE,
+            None,
+            &mut hkey,
+            Some(&mut disposition),
+        )
+    };
+    if created.0 != 0 {
+        log::warn!("ytm-hybrid: cannot register the AppUserModelID display name");
+        return;
+    }
+    let written = unsafe {
+        RegSetValueExW(
+            hkey,
+            &name,
+            None,
+            REG_SZ,
+            Some(std::slice::from_raw_parts(
+                value.as_ptr() as *const u8,
+                value.len() * 2,
+            )),
+        )
+    };
+    unsafe {
+        let _ = RegCloseKey(hkey);
+    }
+    if written.0 != 0 {
+        log::warn!("ytm-hybrid: cannot write the AppUserModelID display name");
+    }
 }
 
 #[cfg(test)]

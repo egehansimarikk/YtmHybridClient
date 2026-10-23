@@ -20,6 +20,7 @@ use gpui::{
 };
 use music::WritingSystem;
 use music::equalizer::{self, Gains};
+use music::spatial::SpatialMode;
 use music::lyrics::LOCAL;
 use music::scrobble::Account;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
@@ -291,6 +292,7 @@ struct Values {
     /// Per band gains in decibels, lowest band first. Kept even while `equalizer` is off, so
     /// turning it back on restores the curve.
     equalizer_bands: Vec<f32>,
+    spatial_audio: bool,
     sleep_timer: bool,
     discord_presence: bool,
     discord_name: DiscordName,
@@ -450,6 +452,7 @@ impl Default for Values {
             gapless: true,
             equalizer: false,
             equalizer_bands: vec![0.; equalizer::BANDS],
+            spatial_audio: false,
             sleep_timer: false,
             discord_presence: false,
             discord_name: DiscordName::Sonora,
@@ -779,6 +782,15 @@ impl AppSettings {
         let stored = &self.values.equalizer_bands;
         let gains = std::array::from_fn(|band| stored.get(band).copied().unwrap_or(0.));
         equalizer::clamped(&gains)
+    }
+
+    pub fn spatial_audio(&self) -> bool {
+        self.values.spatial_audio
+    }
+
+    pub fn spatial_audio_mode(&self) -> SpatialMode {
+        // BitChord: Single mode only (BS2BCrossfeed)
+        SpatialMode::BS2BCrossfeed
     }
 
     pub fn sleep_timer(&self) -> bool {
@@ -1203,6 +1215,11 @@ impl AppSettings {
 
     pub fn set_equalizer_gains(&mut self, gains: &Gains, cx: &mut Context<Self>) {
         self.values.equalizer_bands = equalizer::clamped(gains).to_vec();
+        self.schedule_save(cx);
+    }
+
+    pub fn set_spatial_audio(&mut self, on: bool, cx: &mut Context<Self>) {
+        self.values.spatial_audio = on;
         self.schedule_save(cx);
     }
 

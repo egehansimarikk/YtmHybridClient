@@ -2,7 +2,7 @@
 # This script creates portable and MSIX packages for Windows
 
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "0.2.0",
     [string]$OutputDir = "./dist",
     [switch]$Build
 )

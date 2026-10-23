@@ -21,7 +21,7 @@
       <img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License: GPL-3.0" />
     </a>
     <a href="https://github.com/egehansimarikk/YtmHybridClient/releases">
-      <img src="https://img.shields.io/badge/Version-v0.1.0-red.svg" alt="Version 0.1.0" />
+      <img src="https://img.shields.io/badge/Version-v0.2.0-red.svg" alt="Version 0.2.0" />
     </a>
     <a href="https://rust-lang.org">
       <img src="https://img.shields.io/badge/Made%20with-Rust-orange.svg" alt="Made with Rust" />

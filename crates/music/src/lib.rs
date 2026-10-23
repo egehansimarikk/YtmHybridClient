@@ -21,6 +21,7 @@ pub mod potoken;
 pub mod progress;
 pub mod scrobble;
 mod sink;
+pub mod spatial;
 mod spectrum;
 pub mod spotify;
 mod stream;
@@ -43,6 +44,7 @@ use time::{Month, OffsetDateTime};
 
 pub use audio::{Server as SoundServer, failing as output_failing, missing_bridge};
 pub use equalizer::Equalizer;
+pub use spatial::{AudioError, SpatialAudioProcessor, SpatialMode, SpatialSource};
 pub use models::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, ArtistRef,
     Contributor, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed, Lyrics, LyricsHit,
@@ -336,7 +338,7 @@ pub trait LyricsProvider: Send + Sync {
 
 /// What an engine is started with. `equalizer` is shared rather than copied: the engine keeps
 /// reading it, so a change reaches the output without a restart.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PlaybackConfig {
     pub normalisation: bool,
     pub gapless: bool,

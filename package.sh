@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 APP_NAME="ytm-hybrid"
-VERSION="0.1.0"
+VERSION="0.2.0"
 MAINTAINER="Egehan Şımarık <egehan_smrk@github.com>"
 COPYRIGHT="2026, Egehan Şımarık"
 DESCRIPTION="Native YouTube Music Desktop Client built with Rust & GPUI."

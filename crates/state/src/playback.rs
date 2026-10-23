@@ -7,6 +7,7 @@ use std::time::{Duration, Instant, SystemTime};
 use anyhow::Result;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Task};
 use music::equalizer::{Equalizer, Gains};
+use music::spatial::SpatialAudioProcessor;
 use music::{
     MusicApi, PlaybackConfig, PlaybackEvent as BackendEvent, PlaybackEvents, PlaybackFactory,
     Player, Spectrum, Track,
@@ -395,6 +396,7 @@ pub struct Playback {
     gapless: bool,
     /// Shared with every engine started here, so a change reaches the output without a restart.
     equalizer: Equalizer,
+    spatial: SpatialAudioProcessor,
     repeat: Repeat,
     radio: bool,
     /// The track the current similar-tracks suggestions were drawn from.
@@ -500,6 +502,10 @@ impl Playback {
             settings.read(cx).equalizer(),
             &settings.read(cx).equalizer_gains(),
         );
+        let spatial = SpatialAudioProcessor::new(
+            settings.read(cx).spatial_audio(),
+            settings.read(cx).spatial_audio_mode(),
+        );
         let repeat = settings.read(cx).repeat();
         let radio = settings.read(cx).radio();
 
@@ -517,6 +523,7 @@ impl Playback {
             normalisation,
             gapless,
             equalizer,
+            spatial,
             repeat,
             radio,
             seeded: None,
@@ -2116,6 +2123,21 @@ impl Playback {
         };
         *slot = gain;
         self.set_equalizer_gains(&gains, cx);
+    }
+
+    pub fn spatial_audio(&self) -> bool {
+        self.spatial.is_enabled()
+    }
+
+    pub fn spatial_processor(&self) -> SpatialAudioProcessor {
+        self.spatial.clone()
+    }
+
+    pub fn set_spatial_audio(&mut self, on: bool, cx: &mut Context<Self>) {
+        self.spatial.set_enabled(on);
+        self.settings
+            .update(cx, |settings, cx| settings.set_spatial_audio(on, cx));
+        cx.notify();
     }
 
     pub fn set_gapless(&mut self, on: bool, cx: &mut Context<Self>) {
