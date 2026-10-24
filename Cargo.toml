@@ -238,6 +238,3 @@ assets = [
     ["assets/linux/ytm-hybrid.desktop", "usr/share/applications/ytm-hybrid.desktop", "644"],
 ]
 depends = ["$auto"]
-
-[workspace.metadata.deb.install-service]
-systemd = "assets/linux/ytm-hybrid@.service"
