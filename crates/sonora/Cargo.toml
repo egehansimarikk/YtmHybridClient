@@ -70,7 +70,7 @@ license-file = "../../LICENSE"
 extended-description = "Native YouTube Music Desktop Client built with Rust & GPUI."
 section = "sound"
 priority = "optional"
-post-install-script = "../../assets/linux/postinst"
+maintainer-scripts = "../../assets/linux"
 assets = [
     ["../../target/release/ytm-hybrid", "usr/bin/ytm-hybrid", "755"],
     ["../../assets/linux/icons/hicolor/16x16/apps/ytm-hybrid.png", "usr/share/icons/hicolor/16x16/apps/ytm-hybrid.png", "644"],
