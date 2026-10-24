@@ -52,7 +52,7 @@
 - Customizable themes, fonts, icons, transparency, and blur effects
 - Local file playback support
 - Native performance with GPUI framework
-- Cross-platform: macOS, Windows, Linux (currently only for Windows)
+- Cross-platform: macOS, Windows, Linux
 
 ## Installation
 
@@ -70,27 +70,34 @@ Download the latest `windows-msvc.exe` for your architecture from [Releases](htt
 
 ### Linux
 
-#### AppImage
+#### Debian / Ubuntu / Linux Mint (.deb)
 
-Download the `x86_64` AppImage from the
-[latest release](https://github.com/egehansimarikk/YtmHybridClient/releases/latest), make it executable and run it:
+Download the `.deb` package from the [latest release](https://github.com/egehansimarikk/YtmHybridClient/releases/latest) and install it via `dpkg` or your desktop software manager:
 
 ```sh
-chmod +x ytm-hybrid-*.AppImage
-./ytm-hybrid-*.AppImage
-```
+sudo dpkg -i ytm-hybrid_0.2.0-1_amd64.deb
+sudo apt-get install -f  # Fix any missing dependencies if needed
 
-An `aarch64` build may be published beside it.
+```
+#### Generic Tarball (.tar.gz)
+Download the portable .tar.gz archive, extract it, make the binary executable, and run:
+
+```sh
+tar -xzf ytm-hybrid-v0.2.0-linux-x64.tar.gz
+cd ytm-hybrid-v0.2.0-linux-x64
+chmod +x ytm-hybrid
+./ytm-hybrid
+
+```
 
 ### macOS
 
-Download the `.dmg` from the [latest release](https://github.com/egehansimarikk/YtmHybridClient/releases/latest).
+> **Note:** Official pre-built macOS binaries (`.dmg`) are currently **not available**. macOS support is planned for future releases.
 
-After installing:
+If you are building from source or running an unsigned local build, macOS Gatekeeper may quarantine the application. After installing or moving `YTMHybrid.app` to your Applications folder, clear the quarantine attribute by running:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/YTMHybrid.app
-```
 
 ## Building from Source
 
