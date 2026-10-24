@@ -212,30 +212,3 @@ opt-level = 2
 [profile.dev.package."*"]
 debug = false
 opt-level = 2
-
-# ==============================================================================
-# Packaging Configuration
-# ==============================================================================
-
-[package.metadata.deb]
-name = "ytm-hybrid"
-maintainer = "Egehan Şımarık <egehan_smrk@github.com>"
-copyright = "2026, Egehan Şımarık"
-license-file = "LICENSE"
-extended-description = "Native YouTube Music Desktop Client built with Rust & GPUI."
-section = "sound"
-priority = "optional"
-post-install-script = "../../assets/linux/postinst"
-assets = [
-    ["target/release/ytm-hybrid", "usr/bin/ytm-hybrid", "755"],
-    ["../../assets/linux/icons/hicolor/16x16/apps/ytm-hybrid.png", "usr/share/icons/hicolor/16x16/apps/ytm-hybrid.png", "644"],
-    ["../../assets/linux/icons/hicolor/24x24/apps/ytm-hybrid.png", "usr/share/icons/hicolor/24x24/apps/ytm-hybrid.png", "644"],
-    ["../../assets/linux/icons/hicolor/32x32/apps/ytm-hybrid.png", "usr/share/icons/hicolor/32x32/apps/ytm-hybrid.png", "644"],
-    ["../../assets/linux/icons/hicolor/48x48/apps/ytm-hybrid.png", "usr/share/icons/hicolor/48x48/apps/ytm-hybrid.png", "644"],
-    ["../../assets/linux/icons/hicolor/64x64/apps/ytm-hybrid.png", "usr/share/icons/hicolor/64x64/apps/ytm-hybrid.png", "644"],
-    ["../../assets/linux/icons/hicolor/128x128/apps/ytm-hybrid.png", "usr/share/icons/hicolor/128x128/apps/ytm-hybrid.png", "644"],
-    ["../../assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png", "usr/share/icons/hicolor/256x256/apps/ytm-hybrid.png", "644"],
-    ["../../assets/linux/icons/hicolor/512x512/apps/ytm-hybrid.png", "usr/share/icons/hicolor/512x512/apps/ytm-hybrid.png", "644"],
-    ["../../assets/linux/ytm-hybrid.desktop", "usr/share/applications/ytm-hybrid.desktop", "644"],
-]
-depends = ["$auto"]
