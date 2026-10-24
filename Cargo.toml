@@ -6,6 +6,7 @@ members = ["crates/*"]
 version = "0.2.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
+description = "Native YouTube Music Desktop Client built with Rust & GPUI."
 repository = "https://github.com/egehansimarikk/ytm-hybrid"
 
 [workspace.dependencies]
@@ -220,7 +221,7 @@ opt-level = 2
 name = "ytm-hybrid"
 maintainer = "Egehan Şımarık <egehan_smrk@github.com>"
 copyright = "2026, Egehan Şımarık"
-license-file = ["LICENSE", "444"]
+license-file = "LICENSE"
 extended-description = "Native YouTube Music Desktop Client built with Rust & GPUI."
 section = "sound"
 priority = "optional"
