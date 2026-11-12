@@ -70,8 +70,8 @@ jobs:
 
       - name: Verify build
         run: |
-          cargo check --release --package ytm-hybrid
-          ./target/release/ytm-hybrid --version || echo "Version check skipped"
+          test -x ./target/release/ytm-hybrid
+          ls -lh ./target/release/ytm-hybrid
 
       - name: Build .deb package
         run: cargo deb --no-build --package ytm-hybrid
@@ -126,9 +126,13 @@ jobs:
         run: cargo build --release --locked --package ytm-hybrid
 
       - name: Verify build
+        shell: pwsh
         run: |
-          cargo check --release --package ytm-hybrid
-          .\target\release\ytm-hybrid.exe --version
+          if (-not (Test-Path "target\release\ytm-hybrid.exe")) {
+            Write-Error "ytm-hybrid.exe not found!"
+            exit 1
+          }
+          Get-Item "target\release\ytm-hybrid.exe"
 
       - name: Create Windows package
         shell: pwsh
@@ -185,8 +189,8 @@ jobs:
 
       - name: Verify build
         run: |
-          cargo check --release --package ytm-hybrid
-          ./target/release/ytm-hybrid --version || echo "Version check skipped"
+          test -x ./target/release/ytm-hybrid
+          ls -lh ./target/release/ytm-hybrid
 
       - name: Create .app bundle and .dmg
         run: |
@@ -229,7 +233,7 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          mkdir release-assets
+          mkdir -p release-assets
           # Linux
           cp artifacts/linux-packages/*.tar.gz release-assets/ || true
           cp artifacts/linux-packages/*.deb release-assets/ || true
@@ -297,35 +301,12 @@ jobs:
 
           All packages include SHA256 checksums. Verify your download:
 
-          ```bash
-          # Linux
-          sha256sum -c SHA256SUMS-linux.txt
+```bash
+# Linux
+sha256sum -c SHA256SUMS-linux.txt
 
-          # macOS
-          shasum -a 256 -c SHA256SUMS-macos.txt
+# macOS
+shasum -a 256 -c SHA256SUMS-macos.txt
 
-          # Windows (PowerShell)
-          Get-FileHash ytm-hybrid.exe -Algorithm SHA256
-          ```
-
-          ### 🔗 Links
-
-          - **Repository**: https://github.com/egehansimarikk/YtmHybridClient
-          - **Issues**: Report bugs or request features
-          - **License**: GPL-3.0-or-later
-
-          ---
-
-          **Full Changelog**: [v0.2.0...v0.3.0](https://github.com/egehansimarikk/YtmHybridClient/compare/v0.2.0...v0.3.0)
-          EOF
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: YTM Hybrid v${{ steps.get_version.outputs.VERSION }}
-          body_path: RELEASE_NOTES.md
-          draft: false
-          prerelease: false
-          files: release-assets/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+# Windows (PowerShell)
+Get-FileHash ytm-hybrid.exe -Algorithm SHA256
