@@ -27,13 +27,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            lld \
+            clang \
+            pkg-config \
+            libfontconfig1-dev \
+            libfreetype-dev \
             libasound2-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libx11-xcb-dev \
             libxcb-render0-dev \
             libxcb-shape0-dev \
             libxcb-xfixes0-dev \
-            libxkbcommon-dev \
+            libvulkan-dev \
             libssl-dev \
-            pkg-config
+            libdbus-1-dev
 
       - name: Install cargo-deb
         run: cargo install cargo-deb --locked
@@ -68,7 +77,9 @@ jobs:
         run: cargo deb --no-build --package ytm-hybrid
 
       - name: Create .tar.gz with install.sh
-        run: ./package.sh
+        run: |
+          chmod +x ./package.sh
+          ./package.sh
 
       - name: Generate SHA256 checksums
         run: |
@@ -176,7 +187,9 @@ jobs:
           ./target/release/ytm-hybrid --version || echo "Version check skipped"
 
       - name: Create .app bundle and .dmg
-        run: ./packaging/macos/build-dmg.sh
+        run: |
+          chmod +x ./packaging/macos/build-dmg.sh
+          ./packaging/macos/build-dmg.sh
 
       - name: Generate SHA256 checksum
         run: |
@@ -305,7 +318,7 @@ jobs:
           EOF
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: YTM Hybrid v${{ steps.get_version.outputs.VERSION }}
           body_path: RELEASE_NOTES.md
