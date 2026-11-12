@@ -58,15 +58,13 @@
 
 ### Windows
 
-#### Installer
+#### Installer (Recommended)
 
-Download and run the [installer](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/YTMHybrid-Setup.exe),
-or the [ARM installer](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/YTMHybrid-Setup-arm64.exe)
-on Windows on ARM.
+Download and run the [Windows Installer](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid-Setup.exe).
 
 #### Portable
 
-Download the latest `windows-msvc.exe` for your architecture from [Releases](https://github.com/egehansimarikk/YtmHybridClient/releases/latest).
+Download the standalone [`ytm-hybrid.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid.exe) from [Releases](https://github.com/egehansimarikk/YtmHybridClient/releases/latest) and run it directly without installation.
 
 ### Linux
 
@@ -75,7 +73,7 @@ Download the latest `windows-msvc.exe` for your architecture from [Releases](htt
 Download the `.deb` package from the [latest release](https://github.com/egehansimarikk/YtmHybridClient/releases/latest) and install it via `dpkg` or your desktop software manager:
 
 ```sh
-sudo dpkg -i ytm-hybrid_0.2.0-1_amd64.deb
+sudo dpkg -i ytm-hybrid_0.3.0_amd64.deb
 sudo apt-get install -f  # Fix any missing dependencies if needed
 
 ```
@@ -83,21 +81,22 @@ sudo apt-get install -f  # Fix any missing dependencies if needed
 Download the portable .tar.gz archive, extract it, make the binary executable, and run:
 
 ```sh
-tar -xzf ytm-hybrid-v0.2.0-linux-x64.tar.gz
-cd ytm-hybrid-v0.2.0-linux-x64
-chmod +x ytm-hybrid
-./ytm-hybrid
+tar -xzf ytm-hybrid-v0.3.0-linux-x64.tar.gz
+cd ytm-hybrid-v0.3.0-linux-x64
+chmod +x install.sh
+./install.sh          # Use ./install.sh --uninstall to remove
 
 ```
 
 ### macOS
 
-> **Note:** Official pre-built macOS binaries (`.dmg`) are currently **not available**. macOS support is planned for future releases.
+Download the .dmg installer (YTM-Hybrid-0.3.0-macOS.dmg) from Releases, open it, and drag YTM Hybrid into your Applications folder.
 
-If you are building from source or running an unsigned local build, macOS Gatekeeper may quarantine the application. After installing or moving `YTMHybrid.app` to your Applications folder, clear the quarantine attribute by running:
+Since the application is not notarized with an Apple Developer certificate, macOS Gatekeeper may block the first launch. You can bypass this by Right-clicking → Open on the app, or by clearing the quarantine attribute in Terminal:
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/YTMHybrid.app
+xattr -dr com.apple.quarantine "/Applications/YTM Hybrid.app"
+```
 
 ## Building from Source
 
