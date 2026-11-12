@@ -131,15 +131,17 @@ jobs:
           .\target\release\ytm-hybrid.exe --version
 
       - name: Create Windows package
+        shell: pwsh
         run: |
-          mkdir dist
-          copy target\release\ytm-hybrid.exe dist\
-          copy LICENSE dist\
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item -Path "target\release\ytm-hybrid.exe" -Destination "dist\" -Force
+          Copy-Item -Path "LICENSE" -Destination "dist\" -Force
 
       - name: Generate SHA256 checksum
+        shell: pwsh
         run: |
-          cd dist
-          certutil -hashfile ytm-hybrid.exe SHA256 > SHA256SUMS-windows.txt
+          $hash = (Get-FileHash "dist\ytm-hybrid.exe" -Algorithm SHA256).Hash.ToLower()
+          "$hash  ytm-hybrid.exe" | Out-File -FilePath "dist\SHA256SUMS-windows.txt" -Encoding ascii
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
