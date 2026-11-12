@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=YTM Hybrid
+GenericName=Music Player
+Comment=YouTube Music streaming client, built with Rust and GPUI
+Icon=ytm-hybrid
+Exec=ytm-hybrid %U
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;youtube;audio;player;youtube music;
+MimeType=x-scheme-handler/youtube;audio/mpeg;audio/flac;audio/mp4;audio/aac;audio/ogg;audio/opus;audio/x-wav;audio/x-aiff;audio/webm;audio/x-matroska;audio/x-wavpack;audio/x-ape;
+StartupWMClass=ytm-hybrid
+StartupNotify=true

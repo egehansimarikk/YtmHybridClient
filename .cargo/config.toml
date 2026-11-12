@@ -1,6 +1,6 @@
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 
 [alias]
-prof = "run --release --package sonora --features profiler"
+prof = "run --release --package ytm-hybrid --features profiler"
 prober = "run --package music --example lyrics-prober --"

@@ -1,0 +1,316 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ===========================================================================
+  # Linux Builds (.deb + .tar.gz with install.sh)
+  # ===========================================================================
+  build-linux:
+    name: Build Linux Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-dev \
+            libssl-dev \
+            pkg-config
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb --locked
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary
+        run: cargo build --release --locked --package ytm-hybrid
+
+      - name: Verify build
+        run: |
+          cargo check --release --package ytm-hybrid
+          ./target/release/ytm-hybrid --version || echo "Version check skipped"
+
+      - name: Build .deb package
+        run: cargo deb --no-build --package ytm-hybrid
+
+      - name: Create .tar.gz with install.sh
+        run: ./package.sh
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd dist
+          sha256sum ytm-hybrid-v*-linux-x64.tar.gz > SHA256SUMS-linux.txt
+          cd ../target/debian
+          sha256sum ytm-hybrid_*.deb >> ../../dist/SHA256SUMS-linux.txt
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/ytm-hybrid-v*-linux-x64.tar.gz
+            target/debian/ytm-hybrid_*.deb
+            dist/SHA256SUMS-linux.txt
+
+  # ===========================================================================
+  # Windows Build
+  # ===========================================================================
+  build-windows:
+    name: Build Windows Package
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary
+        run: cargo build --release --locked --package ytm-hybrid
+
+      - name: Verify build
+        run: |
+          cargo check --release --package ytm-hybrid
+          .\target\release\ytm-hybrid.exe --version
+
+      - name: Create Windows package
+        run: |
+          mkdir dist
+          copy target\release\ytm-hybrid.exe dist\
+          copy LICENSE dist\
+
+      - name: Generate SHA256 checksum
+        run: |
+          cd dist
+          certutil -hashfile ytm-hybrid.exe SHA256 > SHA256SUMS-windows.txt
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: |
+            dist/ytm-hybrid.exe
+            dist/LICENSE
+            dist/SHA256SUMS-windows.txt
+
+  # ===========================================================================
+  # macOS Build (.app bundle + .dmg)
+  # ===========================================================================
+  build-macos:
+    name: Build macOS Package
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binary
+        run: cargo build --release --locked --package ytm-hybrid
+
+      - name: Verify build
+        run: |
+          cargo check --release --package ytm-hybrid
+          ./target/release/ytm-hybrid --version || echo "Version check skipped"
+
+      - name: Create .app bundle and .dmg
+        run: ./packaging/macos/build-dmg.sh
+
+      - name: Generate SHA256 checksum
+        run: |
+          cd dist
+          shasum -a 256 YTM-Hybrid-*.dmg > SHA256SUMS-macos.txt
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-package
+          path: |
+            dist/YTM-Hybrid-*.dmg
+            dist/SHA256SUMS-macos.txt
+
+  # ===========================================================================
+  # Create GitHub Release
+  # ===========================================================================
+  create-release:
+    name: Create GitHub Release
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifact structure
+        run: ls -R artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir release-assets
+          # Linux
+          cp artifacts/linux-packages/*.tar.gz release-assets/ || true
+          cp artifacts/linux-packages/*.deb release-assets/ || true
+          cp artifacts/linux-packages/SHA256SUMS-linux.txt release-assets/ || true
+          # Windows
+          cp artifacts/windows-package/ytm-hybrid.exe release-assets/ || true
+          cp artifacts/windows-package/SHA256SUMS-windows.txt release-assets/ || true
+          # macOS
+          cp artifacts/macos-package/*.dmg release-assets/ || true
+          cp artifacts/macos-package/SHA256SUMS-macos.txt release-assets/ || true
+          # Combined checksums
+          cat artifacts/*/SHA256SUMS-*.txt > release-assets/SHA256SUMS.txt || true
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create Release Notes
+        run: |
+          cat > RELEASE_NOTES.md << 'EOF'
+          ## YTM Hybrid v${{ steps.get_version.outputs.VERSION }}
+
+          ### 🎉 What's New in v0.3.0
+
+          #### 🔧 Infrastructure Improvements
+          - **Complete Sonora Isolation**: All config, cache, and data directories now use `ytm-hybrid` branding
+          - **MPRIS Integration**: D-Bus service updated to `org.mpris.MediaPlayer2.ytm-hybrid`
+          - **Wayland/Hyprland Icon Matching**: Proper `app_id` and `StartupWMClass` for perfect icon matching
+
+          #### 📦 New Installation Options
+          - **Linux**: New `install.sh` script for user-local installation
+            - Installs to `~/.local/bin/ytm-hybrid`
+            - Desktop entry with proper icon paths
+            - Easy uninstall with `./install.sh --uninstall`
+          - **macOS**: Official `.dmg` installer with proper app bundle
+          - **Windows**: Standalone executable
+
+          #### 🎨 Features Already Available
+          - ✅ Visualizer with multiple modes (Bars, Wave, Both)
+          - ✅ 10-band equalizer with 12 built-in presets
+          - ✅ Discord Rich Presence
+          - ✅ MPRIS media controls (Linux)
+          - ✅ Gapless playback with audio normalization
+          - ✅ Synced/karaoke lyrics support
+
+          ### 📥 Downloads
+
+          Choose the package for your platform:
+
+          #### Linux
+          - **`.deb` (Debian/Ubuntu)**: `ytm-hybrid_0.3.0_amd64.deb`
+          - **`.tar.gz` (Portable)**: `ytm-hybrid-v0.3.0-linux-x64.tar.gz`
+            - Includes `install.sh` for easy installation
+            - Run `./install.sh` to install, `./install.sh --uninstall` to remove
+
+          #### Windows
+          - **Portable executable**: `ytm-hybrid.exe`
+
+          #### macOS
+          - **DMG installer**: `YTM-Hybrid-0.3.0-macOS.dmg`
+            - Drag to Applications folder
+            - First launch: Right-click → Open (Gatekeeper bypass)
+
+          ### ✅ Verify Downloads
+
+          All packages include SHA256 checksums. Verify your download:
+
+          ```bash
+          # Linux
+          sha256sum -c SHA256SUMS-linux.txt
+
+          # macOS
+          shasum -a 256 -c SHA256SUMS-macos.txt
+
+          # Windows (PowerShell)
+          Get-FileHash ytm-hybrid.exe -Algorithm SHA256
+          ```
+
+          ### 🔗 Links
+
+          - **Repository**: https://github.com/egehansimarikk/YtmHybridClient
+          - **Issues**: Report bugs or request features
+          - **License**: GPL-3.0-or-later
+
+          ---
+
+          **Full Changelog**: [v0.2.0...v0.3.0](https://github.com/egehansimarikk/YtmHybridClient/compare/v0.2.0...v0.3.0)
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: YTM Hybrid v${{ steps.get_version.outputs.VERSION }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

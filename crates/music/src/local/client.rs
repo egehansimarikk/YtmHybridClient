@@ -649,7 +649,7 @@ mod tests {
 
     #[tokio::test]
     async fn home_feed_quick_picks_mixes_starred_played_and_random() {
-        let dir = std::env::temp_dir().join(format!("sonora-test-{}", fastrand::u64(..)));
+        let dir = std::env::temp_dir().join(format!("ytm-hybrid-test-{}", fastrand::u64(..)));
         std::fs::create_dir_all(&dir).unwrap();
         let db = Database::at(dir.join("state.sqlite"));
         let cache = storage::Cache::at(dir.join("cache.sqlite"));

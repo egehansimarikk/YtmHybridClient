@@ -225,12 +225,12 @@ fn gmp(profile: &Path) -> Option<PathBuf> {
     path.is_file().then_some(path)
 }
 
-/// Sonora's own folder for the module, `$XDG_CACHE_HOME/sonora/widevine`, holding one
+/// YTM Hybrid's own folder for the module, `$XDG_CACHE_HOME/ytm-hybrid/widevine`, holding one
 /// subfolder per version fetched.
 pub fn store() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
-        .join("sonora")
+        .join("ytm-hybrid")
         .join("widevine")
 }
 

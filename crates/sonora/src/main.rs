@@ -104,9 +104,8 @@ fn main() {
 
         let database = storage::Database::standard();
         // YTM Hybrid: Only YouTube Music provider
-        let providers: Vec<Arc<dyn music::MusicProvider>> = vec![
-            Arc::new(music::youtube::YouTubeProvider::new()),
-        ];
+        let providers: Vec<Arc<dyn music::MusicProvider>> =
+            vec![Arc::new(music::youtube::YouTubeProvider::new())];
         // Keep local provider disabled for now (can be re-enabled later if needed)
         let local_provider: Arc<dyn music::MusicProvider> =
             Arc::new(music::local::LocalProvider::new(
@@ -557,17 +556,19 @@ const APP_USER_MODEL_ID: &str = "YTMHybrid";
 
 #[cfg(windows)]
 fn set_app_user_model_id() {
-    use windows::core::HSTRING;
-    use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
     use windows::Win32::System::Registry::{
-        HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ,
-        REG_CREATE_KEY_DISPOSITION, RegCloseKey, RegCreateKeyExW, RegSetValueExW,
+        HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_CREATE_KEY_DISPOSITION,
+        REG_OPTION_NON_VOLATILE, REG_SZ, RegCloseKey, RegCreateKeyExW, RegSetValueExW,
     };
+    use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+    use windows::core::HSTRING;
 
     let app_id = HSTRING::from(APP_USER_MODEL_ID);
     unsafe {
         SetCurrentProcessExplicitAppUserModelID(&app_id).unwrap_or_else(|error| {
-            log::warn!("ytm-hybrid: cannot register AppUserModelID \"{APP_USER_MODEL_ID}\": {error}");
+            log::warn!(
+                "ytm-hybrid: cannot register AppUserModelID \"{APP_USER_MODEL_ID}\": {error}"
+            );
         });
     }
     log::debug!("ytm-hybrid: registered AppUserModelID \"{APP_USER_MODEL_ID}\"");
@@ -585,7 +586,7 @@ fn set_app_user_model_id() {
     let created = unsafe {
         RegCreateKeyExW(
             HKEY_CURRENT_USER,
-            &subkey,  // &HSTRING implements Param<PCWSTR>
+            &subkey, // &HSTRING implements Param<PCWSTR>
             None,
             None,
             REG_OPTION_NON_VOLATILE,

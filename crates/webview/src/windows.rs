@@ -206,7 +206,7 @@ fn begin_environment(
 fn user_data_folder() -> Result<Vec<u16>> {
     let folder = dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
-        .join("sonora")
+        .join("ytm-hybrid")
         .join("webview2");
     std::fs::create_dir_all(&folder)
         .with_context(|| format!("cannot create {}", folder.display()))?;

@@ -25,16 +25,40 @@ use rodio::source::SeekError;
 /// BS2B crossfeed coefficients for 44.1 kHz sample rate
 /// Derived from the standard BS2B algorithm with 700 Hz low-pass filter
 /// and ~4.5 dB attenuation on cross-fed signal
-const BS2B_COEFFS_44K: [f32; 5] = [0.612457f32, 0.244980f32, 0.087543f32, 0.194988f32, 0.069972f32];
+const BS2B_COEFFS_44K: [f32; 5] = [
+    0.612457f32,
+    0.244980f32,
+    0.087543f32,
+    0.194988f32,
+    0.069972f32,
+];
 
 /// BS2B crossfeed coefficients for 48 kHz sample rate
-const BS2B_COEFFS_48K: [f32; 5] = [0.594604f32, 0.231170f32, 0.094604f32, 0.181166f32, 0.064851f32];
+const BS2B_COEFFS_48K: [f32; 5] = [
+    0.594604f32,
+    0.231170f32,
+    0.094604f32,
+    0.181166f32,
+    0.064851f32,
+];
 
 /// BS2B crossfeed coefficients for 96 kHz sample rate
-const BS2B_COEFFS_96K: [f32; 5] = [0.560124f32, 0.205644f32, 0.105122f32, 0.156381f32, 0.054938f32];
+const BS2B_COEFFS_96K: [f32; 5] = [
+    0.560124f32,
+    0.205644f32,
+    0.105122f32,
+    0.156381f32,
+    0.054938f32,
+];
 
 /// BS2B crossfeed coefficients for 192 kHz sample rate
-const BS2B_COEFFS_192K: [f32; 5] = [0.533378f32, 0.185891f32, 0.113214f32, 0.137593f32, 0.047385f32];
+const BS2B_COEFFS_192K: [f32; 5] = [
+    0.533378f32,
+    0.185891f32,
+    0.113214f32,
+    0.137593f32,
+    0.047385f32,
+];
 
 /// Get BS2B coefficients for a given sample rate
 fn get_bs2b_coeffs(sample_rate: u32) -> &'static [f32; 5] {
@@ -147,7 +171,9 @@ impl CrossfeedEngine {
     fn apply_biquad(&mut self, input: f32, b0: f32, b1: f32, b2: f32, a1: f32, a2: f32) -> f32 {
         // Biquad filter difference equation:
         // y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
-        let output = b0 * input + b1 * self.prev_left + b2 * self.prev_right - a1 * self.prev_left - a2 * self.prev_right;
+        let output = b0 * input + b1 * self.prev_left + b2 * self.prev_right
+            - a1 * self.prev_left
+            - a2 * self.prev_right;
 
         // Update delay line
         self.prev_right = self.prev_left;
@@ -211,12 +237,21 @@ impl std::fmt::Display for AudioError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DeviceUnavailable(msg) => write!(f, "Audio output device unavailable: {msg}"),
-            Self::UnsupportedFormat { channels, sample_rate } => {
-                write!(f, "Unsupported audio format: {channels}ch @ {sample_rate} Hz")
+            Self::UnsupportedFormat {
+                channels,
+                sample_rate,
+            } => {
+                write!(
+                    f,
+                    "Unsupported audio format: {channels}ch @ {sample_rate} Hz"
+                )
             }
             Self::BufferUnderflow => write!(f, "Audio stream buffer underflow"),
             Self::ChannelMismatch { expected, found } => {
-                write!(f, "Audio channel count mismatch: expected {expected}, found {found}")
+                write!(
+                    f,
+                    "Audio channel count mismatch: expected {expected}, found {found}"
+                )
             }
             Self::LockError(msg) => write!(f, "Audio processor lock error: {msg}"),
         }
@@ -230,7 +265,9 @@ impl std::error::Error for AudioError {}
 // ==============================================================================
 
 /// The spatial audio processing mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
 pub enum SpatialMode {
     /// BS2B Binaural Crossfeed: Lightweight stereo soundstage widener
     #[default]

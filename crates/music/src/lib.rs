@@ -44,7 +44,6 @@ use time::{Month, OffsetDateTime};
 
 pub use audio::{Server as SoundServer, failing as output_failing, missing_bridge};
 pub use equalizer::Equalizer;
-pub use spatial::{AudioError, SpatialAudioProcessor, SpatialMode, SpatialSource};
 pub use models::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, ArtistRef,
     Contributor, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed, Lyrics, LyricsHit,
@@ -52,6 +51,7 @@ pub use models::{
     Playlist, PlaylistDetail, ReleaseType, RomanizedText, SavedArtist, Track, TrackKey, TrackTags,
     UserDetail, UserProfile, Voice, WritingSystem,
 };
+pub use spatial::{AudioError, SpatialAudioProcessor, SpatialMode, SpatialSource};
 pub use spectrum::Spectrum;
 
 pub const LOCAL_TRACK_PREFIX: &str = "local:";

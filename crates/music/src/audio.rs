@@ -543,7 +543,6 @@ fn at_rate(
         .find_map(|range| range.try_with_sample_rate(rate))
 }
 
-
 /// The sound server whose socket this session has, PipeWire first since it also answers on the
 /// PulseAudio socket.
 #[cfg(target_os = "linux")]

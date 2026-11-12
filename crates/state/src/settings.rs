@@ -20,9 +20,9 @@ use gpui::{
 };
 use music::WritingSystem;
 use music::equalizer::{self, Gains};
-use music::spatial::SpatialMode;
 use music::lyrics::LOCAL;
 use music::scrobble::Account;
+use music::spatial::SpatialMode;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
@@ -2479,7 +2479,7 @@ fn absolute_path(path: &Path) -> PathBuf {
 fn settings_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("sonora")
+        .join("ytm-hybrid")
         .join("settings.json")
 }
 
@@ -2865,7 +2865,7 @@ mod tests {
     fn scratch(name: &str) -> PathBuf {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         std::env::temp_dir().join(format!(
-            "sonora-{name}-{}-{}",
+            "ytm-hybrid-{name}-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ))

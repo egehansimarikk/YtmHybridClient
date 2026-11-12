@@ -43,4 +43,4 @@ venv/
 
 # --- OS / System Files ---
 .DS_Store
-Thumbs.db
+Thumbs.dbdist/

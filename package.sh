@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 APP_NAME="ytm-hybrid"
-VERSION="0.2.0"
+VERSION="0.3.0"
 MAINTAINER="Egehan Şımarık <egehan_smrk@github.com>"
 COPYRIGHT="2026, Egehan Şımarık"
 DESCRIPTION="Native YouTube Music Desktop Client built with Rust & GPUI."
@@ -48,11 +48,35 @@ elif [ -f "$BUILD_DIR/ytm-hybrid.exe" ]; then
     cp "$BUILD_DIR/ytm-hybrid.exe" "$TAR_DIST/"
 fi
 
-# Copy icon
-cp "$PROJECT_DIR/assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png" "$TAR_DIST/"
+# Copy icon to root (for Waybar/panel compatibility)
+cp "$PROJECT_DIR/assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png" "$TAR_DIST/ytm-hybrid.png"
+
+# Copy install script
+cp "$PROJECT_DIR/packaging/linux/install.sh" "$TAR_DIST/"
+chmod +x "$TAR_DIST/install.sh"
 
 # Copy LICENSE
 cp "$PROJECT_DIR/LICENSE" "$TAR_DIST/"
+
+# Create README for tar.gz
+cat > "$TAR_DIST/README.txt" << 'EOF'
+YTM Hybrid - Portable Installation
+
+INSTALLATION:
+Run the install script to install for current user:
+  ./install.sh
+
+MANUAL INSTALLATION:
+1. Copy ytm-hybrid to ~/.local/bin/
+2. Copy ytm-hybrid.png to ~/.local/share/icons/hicolor/256x256/apps/
+3. Create ~/.local/share/applications/ytm-hybrid.desktop
+
+UNINSTALLATION:
+  ./install.sh --uninstall
+
+For more information, visit:
+  https://github.com/egehansimarikk/YtmHybridClient
+EOF
 
 # Create archive
 cd "$DIST_DIR"

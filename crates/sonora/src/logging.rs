@@ -7,13 +7,13 @@ use log::{Log, Metadata, Record};
 
 const CONSOLE: &str = "warn,symphonia=error,lofty=error,discord_rich_presence=error";
 const DISK: &str = "warn,symphonia=error,lofty=error,discord_rich_presence=error,sonora=debug,ui=debug,music=debug,ytmusic=debug,state::potoken=debug";
-const FILTER: &str = "SONORA_LOG";
-const PREVIOUS: &str = "sonora.log.1";
+const FILTER: &str = "YTM_HYBRID_LOG";
+const PREVIOUS: &str = "ytm-hybrid.log.1";
 const LIMIT: u64 = 16 * 1024 * 1024;
 /// How many runs the log keeps, counting the one that is starting.
 const SESSIONS: usize = 5;
 /// The first line of every run, which is how a later start finds where each run began.
-const STARTED: &str = "logging: sonora";
+const STARTED: &str = "logging: ytm-hybrid";
 
 /// Logs to stderr only, for a process that is not the app, such as the Widevine host.
 pub fn console() {

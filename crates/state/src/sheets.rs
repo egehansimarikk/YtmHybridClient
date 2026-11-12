@@ -173,7 +173,7 @@ impl Held {
 fn legacy_path() -> PathBuf {
     dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("sonora")
+        .join("ytm-hybrid")
         .join("lyrics.json")
 }
 

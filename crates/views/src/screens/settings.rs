@@ -11,9 +11,8 @@ use crate::shared::popups::{AccountPicker, CookiePrompt, SearchPopup, matches_qu
 use crate::shared::text;
 use crate::shared::veil::{Edge, veil};
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Entity, FocusHandle, FontWeight,
-    MouseButton, MouseUpEvent, Pixels, Render, SharedString, Task, Window, div, px,
-    relative,
+    AnyElement, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, MouseButton,
+    MouseUpEvent, Pixels, Render, SharedString, Task, Window, div, px, relative,
 };
 use gpui::{ScrollHandle, prelude::*, svg};
 use i18n::{Language, t};
@@ -27,10 +26,7 @@ use state::{
     LYRICS_SOURCES, Playback, SYSTEM_FONT, Scan, ScrobbleState, Scrobbling, Session, SessionState,
     Sleep, Sonora,
 };
-use ui::{
-    ActiveTheme as _, Deck, LEADING, Scrollbar, Scroller, eyebrow,
-    snapped,
-};
+use ui::{ActiveTheme as _, Deck, LEADING, Scrollbar, Scroller, eyebrow, snapped};
 use ui::{
     Avatar, Button, Dismiss, InfoCard, Initials, Input, Look, MAX_FONT, MAX_LYRICS_SCALE,
     MAX_TRANSPARENCY, MIN_FONT, MIN_LYRICS_SCALE, MenuItem, Modal, Pace, Picker, Popovers, Radio,
@@ -293,9 +289,7 @@ macro_rules! member {
     };
 }
 
-const MEMBERS: [Member; 1] = [
-    member!("egehansimarikk", Role::LeadMaintainer),
-];
+const MEMBERS: [Member; 1] = [member!("egehansimarikk", Role::LeadMaintainer)];
 
 // YTM Hybrid: DraggedSource and lyrics_drop_gap removed (no provider priority UI)
 
@@ -799,7 +793,10 @@ impl SettingsView {
                 t!("settings-equalizer-preset-detail"),
             ),
             Slot::EqualizerBands => (t!("settings-group-equalizer"), SharedString::default()),
-            Slot::SpatialAudio => (t!("settings-spatial-audio"), t!("settings-spatial-audio-detail")),
+            Slot::SpatialAudio => (
+                t!("settings-spatial-audio"),
+                t!("settings-spatial-audio-detail"),
+            ),
             Slot::LyricsProviders => (
                 t!("settings-lyrics-providers"),
                 t!("settings-lyrics-providers-detail"),
@@ -4433,9 +4430,7 @@ impl Render for SettingsView {
             let text_system = cx.text_system().clone();
             let io = Io::global(cx);
             self.font_task = Some(cx.spawn(async move |_this, _cx| {
-                let _names = io
-                    .spawn_blocking(move || usable_fonts(text_system))
-                    .await;
+                let _names = io.spawn_blocking(move || usable_fonts(text_system)).await;
                 // YTM Hybrid: Font loading simplified - removed dynamic update logic
             }));
         }

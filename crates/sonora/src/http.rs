@@ -34,7 +34,7 @@ impl Client {
     pub fn new(handle: Handle) -> Self {
         let _guard = handle.enter();
         let cache = dirs::cache_dir()
-            .map(|root| root.join("sonora").join("images"))
+            .map(|root| root.join("ytm-hybrid").join("images"))
             .and_then(|root| match DiskCache::new(root, CACHE_BYTES, CACHE_AGE) {
                 Ok(cache) => Some(Arc::new(Mutex::new(cache))),
                 Err(error) => {
