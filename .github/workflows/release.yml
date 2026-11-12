@@ -1,12 +1,9 @@
-cd ~/Belgeler/ytm_hybrid_client
-
-cat << 'YAML_EOF' > .github/workflows/release.yml
 name: Release Build
 
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 env:
   CARGO_TERM_COLOR: always
@@ -26,23 +23,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            lld \
-            clang \
-            pkg-config \
-            libfontconfig1-dev \
-            libfreetype-dev \
-            libasound2-dev \
-            libwayland-dev \
-            libxkbcommon-dev \
-            libxkbcommon-x11-dev \
-            libx11-xcb-dev \
-            libxcb-render0-dev \
-            libxcb-shape0-dev \
-            libxcb-xfixes0-dev \
-            libvulkan-dev \
-            libssl-dev \
-            libdbus-1-dev
+          sudo apt-get install -y             lld             clang             pkg-config             libfontconfig1-dev             libfreetype-dev             libasound2-dev             libwayland-dev             libxkbcommon-dev             libxkbcommon-x11-dev             libx11-xcb-dev             libxcb-render0-dev             libxcb-shape0-dev             libxcb-xfixes0-dev             libvulkan-dev             libssl-dev             libdbus-1-dev
 
       - name: Install cargo-deb
         run: cargo install cargo-deb --locked
@@ -125,18 +106,18 @@ jobs:
       - name: Verify build
         shell: pwsh
         run: |
-          if (-not (Test-Path "target\release\ytm-hybrid.exe")) {
+          if (-not (Test-Path "targetelease\ytm-hybrid.exe")) {
             Write-Error "ytm-hybrid.exe not found!"
             exit 1
           }
-          Get-Item "target\release\ytm-hybrid.exe"
+          Get-Item "targetelease\ytm-hybrid.exe"
 
       - name: Create Windows package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item -Path "target\release\ytm-hybrid.exe" -Destination "dist\" -Force
-          Copy-Item -Path "LICENSE" -Destination "dist\" -Force
+          Copy-Item -Path "targetelease\ytm-hybrid.exe" -Destination "dist" -Force
+          Copy-Item -Path "LICENSE" -Destination "dist" -Force
 
       - name: Generate SHA256 checksum
         shell: pwsh
@@ -245,4 +226,3 @@ jobs:
           files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-YAML_EOF
