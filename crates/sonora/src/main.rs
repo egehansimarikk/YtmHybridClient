@@ -552,6 +552,7 @@ fn platform_handle(_window: &gpui::Window) -> Option<*mut std::ffi::c_void> {
 
 /// The AppUserModelID this process announces to Windows, so SMTC, the taskbar and the Start
 /// menu treat it as "YTM Hybrid" instead of "Unknown application". Set before any window opens.
+#[allow(dead_code)]
 const APP_USER_MODEL_ID: &str = "YTMHybrid";
 
 #[cfg(windows)]

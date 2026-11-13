@@ -219,14 +219,18 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir release-assets
-          cp artifacts/linux-packages/*.tar.gz release-assets/ || true
-          cp artifacts/linux-packages/*.deb release-assets/ || true
-          cp artifacts/linux-packages/SHA256SUMS-linux.txt release-assets/ || true
-          cp artifacts/windows-package/ytm-hybrid.exe release-assets/ || true
-          cp artifacts/windows-package/SHA256SUMS-windows.txt release-assets/ || true
-          cp artifacts/macos-package/*.dmg release-assets/ || true
-          cp artifacts/macos-package/SHA256SUMS-macos.txt release-assets/ || true
-          cat artifacts/*/SHA256SUMS-*.txt > release-assets/SHA256SUMS.txt || true
+          # Linux packages - try dist/ subdirectory first, then root
+          cp artifacts/linux-packages/dist/*.tar.gz release-assets/ 2>/dev/null || cp artifacts/linux-packages/*.tar.gz release-assets/ || true
+          cp artifacts/linux-packages/target/debian/*.deb release-assets/ 2>/dev/null || cp artifacts/linux-packages/*.deb release-assets/ || true
+          cp artifacts/linux-packages/dist/SHA256SUMS-linux.txt release-assets/ 2>/dev/null || cp artifacts/linux-packages/SHA256SUMS-linux.txt release-assets/ || true
+          # Windows package - try dist/ subdirectory first, then root
+          cp artifacts/windows-package/dist/ytm-hybrid.exe release-assets/ 2>/dev/null || cp artifacts/windows-package/ytm-hybrid.exe release-assets/ || true
+          cp artifacts/windows-package/dist/SHA256SUMS-windows.txt release-assets/ 2>/dev/null || cp artifacts/windows-package/SHA256SUMS-windows.txt release-assets/ || true
+          # macOS package - try dist/ subdirectory first, then root
+          cp artifacts/macos-package/dist/*.dmg release-assets/ 2>/dev/null || cp artifacts/macos-package/*.dmg release-assets/ || true
+          cp artifacts/macos-package/dist/SHA256SUMS-macos.txt release-assets/ 2>/dev/null || cp artifacts/macos-package/SHA256SUMS-macos.txt release-assets/ || true
+          # Combine all checksums
+          cat artifacts/*/SHA256SUMS-*.txt artifacts/*/dist/SHA256SUMS-*.txt > release-assets/SHA256SUMS.txt 2>/dev/null || true
 
       - name: Extract version from tag
         id: get_version

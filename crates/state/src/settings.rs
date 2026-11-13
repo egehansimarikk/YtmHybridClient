@@ -43,7 +43,8 @@ use crate::{Outcome, Repeat, Sonora, Toasts};
 #[serde(rename_all = "kebab-case")]
 pub enum DiscordName {
     #[default]
-    Sonora,
+    #[serde(rename = "ytm-hybrid")]
+    YtmHybrid,
     Provider,
     Music,
     Title,
@@ -53,7 +54,7 @@ pub enum DiscordName {
 
 impl DiscordName {
     pub const ALL: [Self; 6] = [
-        Self::Sonora,
+        Self::YtmHybrid,
         Self::Provider,
         Self::Music,
         Self::Title,
@@ -63,7 +64,7 @@ impl DiscordName {
 
     pub fn id(self) -> &'static str {
         match self {
-            Self::Sonora => "sonora",
+            Self::YtmHybrid => "ytm-hybrid",
             Self::Provider => "provider",
             Self::Music => "music",
             Self::Title => "title",
@@ -74,7 +75,7 @@ impl DiscordName {
 
     pub fn key(self) -> &'static str {
         match self {
-            Self::Sonora => "settings-discord-name-sonora",
+            Self::YtmHybrid => "settings-discord-name-YTM Hybrid",
             Self::Provider => "settings-discord-name-provider",
             Self::Music => "settings-discord-name-music",
             Self::Title => "settings-discord-name-title",
@@ -293,13 +294,14 @@ struct Values {
     /// turning it back on restores the curve.
     equalizer_bands: Vec<f32>,
     spatial_audio: bool,
+    spatial_audio_mode: SpatialMode,
     sleep_timer: bool,
     discord_presence: bool,
     discord_name: DiscordName,
     discord_show_paused: bool,
     discord_badge: bool,
     discord_without_details: bool,
-    discord_sonora_button: bool,
+    discord_ytm_hybrid_button: bool,
     discord_provider_button: bool,
     artwork_for_local_files: bool,
     lyrics_for_local_files: bool,
@@ -453,13 +455,14 @@ impl Default for Values {
             equalizer: false,
             equalizer_bands: vec![0.; equalizer::BANDS],
             spatial_audio: false,
+            spatial_audio_mode: SpatialMode::Off,
             sleep_timer: false,
             discord_presence: false,
-            discord_name: DiscordName::Sonora,
+            discord_name: DiscordName::YtmHybrid,
             discord_show_paused: false,
             discord_badge: false,
             discord_without_details: false,
-            discord_sonora_button: true,
+            discord_ytm_hybrid_button: true,
             discord_provider_button: true,
             artwork_for_local_files: true,
             lyrics_for_local_files: true,
@@ -789,8 +792,12 @@ impl AppSettings {
     }
 
     pub fn spatial_audio_mode(&self) -> SpatialMode {
-        // BitChord: Single mode only (BS2BCrossfeed)
-        SpatialMode::BS2BCrossfeed
+        self.values.spatial_audio_mode
+    }
+
+    pub fn set_spatial_audio_mode(&mut self, mode: SpatialMode, cx: &mut Context<Self>) {
+        self.values.spatial_audio_mode = mode;
+        self.schedule_save(cx);
     }
 
     pub fn sleep_timer(&self) -> bool {
@@ -822,9 +829,9 @@ impl AppSettings {
         self.values.discord_without_details
     }
 
-    /// Whether the Discord status carries a button that opens the Sonora project page.
-    pub fn discord_sonora_button(&self) -> bool {
-        self.values.discord_sonora_button
+    /// Whether the Discord status carries a button that opens the YTM Hybrid project page.
+    pub fn discord_ytm_hybrid_button(&self) -> bool {
+        self.values.discord_ytm_hybrid_button
     }
 
     /// Whether the Discord status carries a button that opens the track on its provider.
@@ -1262,8 +1269,8 @@ impl AppSettings {
         self.schedule_save(cx);
     }
 
-    pub fn set_discord_sonora_button(&mut self, enabled: bool, cx: &mut Context<Self>) {
-        self.values.discord_sonora_button = enabled;
+    pub fn set_discord_ytm_hybrid_button(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        self.values.discord_ytm_hybrid_button = enabled;
         self.schedule_save(cx);
     }
 

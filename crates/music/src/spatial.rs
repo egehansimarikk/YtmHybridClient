@@ -261,46 +261,390 @@ impl std::fmt::Display for AudioError {
 impl std::error::Error for AudioError {}
 
 // ==============================================================================
-// Spatial Audio Modes
+// Spatial Audio Modes & Presets
 // ==============================================================================
 
-/// The spatial audio processing mode.
+/// The spatial audio processing mode with advanced presets.
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
 )]
 pub enum SpatialMode {
-    /// BS2B Binaural Crossfeed: Lightweight stereo soundstage widener
+    /// No spatial processing - pure passthrough
     #[default]
-    BS2BCrossfeed,
+    Off,
+    /// Studio (Intimate): Subtle crossfeed, minimal reflections
+    Studio,
+    /// Wide Stage: Enhanced HRTF, moderate reflections
+    WideStage,
+    /// Concert Hall: Maximum space, full early reflections
+    ConcertHall,
 }
 
 impl SpatialMode {
     /// All available spatial modes.
-    pub const ALL: [Self; 1] = [Self::BS2BCrossfeed];
+    pub const ALL: [Self; 4] = [Self::Off, Self::Studio, Self::WideStage, Self::ConcertHall];
 
     /// Unique identifier for settings serialization.
     pub fn id(self) -> &'static str {
         match self {
-            Self::BS2BCrossfeed => "bs2b_crossfeed",
+            Self::Off => "off",
+            Self::Studio => "studio",
+            Self::WideStage => "wide_stage",
+            Self::ConcertHall => "concert_hall",
         }
     }
 
     /// User-facing display name.
     pub fn display_name(self) -> &'static str {
-        "BS2B Binaural Crossfeed"
+        match self {
+            Self::Off => "Off",
+            Self::Studio => "Studio (Intimate)",
+            Self::WideStage => "Wide Stage",
+            Self::ConcertHall => "Concert Hall",
+        }
     }
 
     /// User-facing description explaining the acoustic benefit.
     pub fn description(self) -> &'static str {
-        "Lightweight BS2B crossfeed: Gentle stereo widening at 700 Hz with ~4.5 dB attenuation"
+        match self {
+            Self::Off => "No spatial processing - pure passthrough",
+            Self::Studio => "Subtle crossfeed with minimal early reflections",
+            Self::WideStage => "Enhanced HRTF scene widening with moderate reflections",
+            Self::ConcertHall => "Maximum spatial depth with full room acoustics",
+        }
     }
 
     /// Parse a mode identifier string.
     pub fn from_id(id: &str) -> Option<Self> {
         match id {
-            "bs2b_crossfeed" => Some(Self::BS2BCrossfeed),
+            "off" => Some(Self::Off),
+            "studio" => Some(Self::Studio),
+            "wide_stage" => Some(Self::WideStage),
+            "concert_hall" => Some(Self::ConcertHall),
             _ => None,
         }
+    }
+
+    /// Get the preset parameters for this mode
+    pub fn params(self) -> SpatialParams {
+        match self {
+            Self::Off => SpatialParams {
+                width: 0.0,
+                depth: 0.0,
+                crossfeed_gain: 0.0,
+                hrtf_gain: 0.0,
+                reflection_gain: 0.0,
+            },
+            Self::Studio => SpatialParams {
+                width: 0.3,
+                depth: 0.2,
+                crossfeed_gain: 0.4,
+                hrtf_gain: 0.2,
+                reflection_gain: 0.15,
+            },
+            Self::WideStage => SpatialParams {
+                width: 0.6,
+                depth: 0.5,
+                crossfeed_gain: 0.5,
+                hrtf_gain: 0.5,
+                reflection_gain: 0.35,
+            },
+            Self::ConcertHall => SpatialParams {
+                width: 0.85,
+                depth: 0.75,
+                crossfeed_gain: 0.6,
+                hrtf_gain: 0.7,
+                reflection_gain: 0.55,
+            },
+        }
+    }
+}
+
+/// Spatial audio processing parameters
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct SpatialParams {
+    /// Stereo width control (0.0 = off, 1.0 = maximum)
+    pub width: f32,
+    /// Depth/distance perception (0.0 = off, 1.0 = maximum)
+    pub depth: f32,
+    /// Crossfeed intensity
+    pub crossfeed_gain: f32,
+    /// HRTF processing intensity
+    pub hrtf_gain: f32,
+    /// Early reflections mix
+    pub reflection_gain: f32,
+}
+
+impl Default for SpatialParams {
+    fn default() -> Self {
+        SpatialMode::Off.params()
+    }
+}
+
+// ==============================================================================
+// HRTF Scene Widening Engine (ITD + ILD)
+// ==============================================================================
+
+/// HRTF-based scene widening using ITD (Interaural Time Difference)
+/// and ILD (Interaural Level Difference) with ring buffer for sub-ms delays.
+#[derive(Clone, Debug)]
+pub struct HrtfEngine {
+    /// Ring buffer for delay line (supports up to ~1ms at 48kHz)
+    delay_buffer_l: [f32; 64],
+    delay_buffer_r: [f32; 64],
+    /// Current write position in ring buffers
+    write_pos: usize,
+    /// Delay in samples for ITD effect (typically 0-15 samples for ~300µs)
+    delay_samples: usize,
+    /// High-shelf filter state for head shadow (ILD)
+    shelf_state_l: [f32; 2],
+    shelf_state_r: [f32; 2],
+    /// High-shelf coefficients (b0, b1, a1)
+    shelf_coeffs: [f32; 3],
+    /// HRTF intensity (0.0 = off, 1.0 = full)
+    intensity: f32,
+}
+
+impl HrtfEngine {
+    pub fn new(sample_rate: u32, intensity: f32) -> Self {
+        let delay_samples = ((sample_rate as f32 * 0.0003) as usize).min(15); // ~300µs
+        let shelf_coeffs = Self::compute_shelf_coeffs(sample_rate);
+
+        Self {
+            delay_buffer_l: [0.0; 64],
+            delay_buffer_r: [0.0; 64],
+            write_pos: 0,
+            delay_samples,
+            shelf_state_l: [0.0; 2],
+            shelf_state_r: [0.0; 2],
+            shelf_coeffs,
+            intensity,
+        }
+    }
+
+    /// Compute high-shelf filter coefficients for head shadow effect
+    /// Attenuates highs on the opposite ear
+    fn compute_shelf_coeffs(sample_rate: u32) -> [f32; 3] {
+        let fc = 3000.0; // Cutoff frequency for head shadow
+        let gain_db = -6.0; // Attenuation in dB
+
+        let w0 = 2.0 * std::f32::consts::PI * fc / sample_rate as f32;
+        let a = 10.0_f32.powf(gain_db / 40.0);
+        let cos_w0 = w0.cos();
+
+        let alpha = w0.sin() / 2.0;
+        let b0 = a * ((a + 1.0) + (a - 1.0) * cos_w0 + 2.0 * alpha.sqrt() * a);
+        let b1 = -2.0 * a * ((a - 1.0) + (a + 1.0) * cos_w0);
+        let a0 = (a + 1.0) - (a - 1.0) * cos_w0 + 2.0 * alpha.sqrt() * a;
+        let a1 = 2.0 * ((a - 1.0) - (a + 1.0) * cos_w0);
+
+        [b0 / a0, b1 / a0, a1 / a0]
+    }
+
+    #[inline(always)]
+    pub fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
+        if self.intensity < 0.001 {
+            return (left, right);
+        }
+
+        // Write current samples to ring buffers
+        self.delay_buffer_l[self.write_pos] = left;
+        self.delay_buffer_r[self.write_pos] = right;
+
+        // Read delayed samples (ITD effect)
+        let read_pos = (self.write_pos + 64 - self.delay_samples) % 64;
+        let delayed_l = self.delay_buffer_l[read_pos];
+        let delayed_r = self.delay_buffer_r[read_pos];
+
+        // Apply head shadow high-shelf filter (ILD effect)
+        let [b0, b1, a1] = self.shelf_coeffs;
+
+        // Left channel receives delayed + filtered right
+        let filtered_r = b0 * delayed_r + b1 * self.shelf_state_r[0] - a1 * self.shelf_state_r[1];
+        self.shelf_state_r[0] = delayed_r;
+        self.shelf_state_r[1] = filtered_r;
+
+        // Right channel receives delayed + filtered left
+        let filtered_l = b0 * delayed_l + b1 * self.shelf_state_l[0] - a1 * self.shelf_state_l[1];
+        self.shelf_state_l[0] = delayed_l;
+        self.shelf_state_l[1] = filtered_l;
+
+        // Mix with dry signal based on intensity
+        let wet_l = left + filtered_r * self.intensity * 0.3;
+        let wet_r = right + filtered_l * self.intensity * 0.3;
+
+        self.write_pos = (self.write_pos + 1) % 64;
+
+        (wet_l, wet_r)
+    }
+
+    pub fn set_intensity(&mut self, intensity: f32) {
+        self.intensity = intensity.clamp(0.0, 1.0);
+    }
+
+    pub fn reset(&mut self) {
+        self.delay_buffer_l.fill(0.0);
+        self.delay_buffer_r.fill(0.0);
+        self.shelf_state_l.fill(0.0);
+        self.shelf_state_r.fill(0.0);
+        self.write_pos = 0;
+    }
+}
+
+// ==============================================================================
+// Early Reflections Engine
+// ==============================================================================
+
+/// Multi-tap delay line for early reflections simulating room acoustics
+#[derive(Clone, Debug)]
+pub struct EarlyReflectionsEngine {
+    /// Delay buffer for reflections (supports up to ~40ms at 48kHz)
+    buffer: [f32; 2048],
+    write_pos: usize,
+    /// Tap delays in samples [8ms, 12ms, 19ms, 23ms, 29ms, 32ms]
+    taps: [(usize, f32); 6],
+    /// Mix amount (0.0 = dry, 1.0 = full reflections)
+    mix: f32,
+}
+
+impl EarlyReflectionsEngine {
+    pub fn new(sample_rate: u32, mix: f32) -> Self {
+        // Calculate tap positions for natural room reflections
+        let ms_to_samples = |ms: f32| (sample_rate as f32 * ms / 1000.0) as usize;
+
+        let taps = [
+            (ms_to_samples(8.0), 0.6),   // First reflection
+            (ms_to_samples(12.0), 0.5),  // Side wall
+            (ms_to_samples(19.0), 0.45), // Back wall
+            (ms_to_samples(23.0), 0.4),  // Ceiling
+            (ms_to_samples(29.0), 0.35), // Floor
+            (ms_to_samples(32.0), 0.3),  // Late early reflection
+        ];
+
+        Self {
+            buffer: [0.0; 2048],
+            write_pos: 0,
+            taps,
+            mix,
+        }
+    }
+
+    #[inline(always)]
+    pub fn process_sample(&mut self, input: f32) -> f32 {
+        // Write input to buffer
+        self.buffer[self.write_pos] = input;
+
+        // Sum all tap outputs
+        let mut output = 0.0;
+        for &(delay, gain) in &self.taps {
+            let read_pos = (self.write_pos + 2048 - delay) % 2048;
+            output += self.buffer[read_pos] * gain * self.mix;
+        }
+
+        self.write_pos = (self.write_pos + 1) % 2048;
+
+        // Mix with dry signal
+        input + output * 0.4
+    }
+
+    pub fn set_mix(&mut self, mix: f32) {
+        self.mix = mix.clamp(0.0, 1.0);
+    }
+
+    pub fn reset(&mut self) {
+        self.buffer.fill(0.0);
+        self.write_pos = 0;
+    }
+}
+
+// ==============================================================================
+// Advanced Spatial Audio Engine
+// ==============================================================================
+
+/// Complete spatial audio DSP chain with crossfeed, HRTF, and early reflections
+#[derive(Clone, Debug)]
+pub struct AdvancedSpatialEngine {
+    crossfeed: CrossfeedEngine,
+    hrtf: HrtfEngine,
+    reflections_l: EarlyReflectionsEngine,
+    reflections_r: EarlyReflectionsEngine,
+    params: SpatialParams,
+    mode: SpatialMode,
+}
+
+impl AdvancedSpatialEngine {
+    pub fn new(mode: SpatialMode, sample_rate: u32) -> Self {
+        let params = mode.params();
+
+        Self {
+            crossfeed: CrossfeedEngine::with_sample_rate(mode != SpatialMode::Off, sample_rate),
+            hrtf: HrtfEngine::new(sample_rate, params.hrtf_gain),
+            reflections_l: EarlyReflectionsEngine::new(sample_rate, params.reflection_gain),
+            reflections_r: EarlyReflectionsEngine::new(sample_rate, params.reflection_gain),
+            params,
+            mode,
+        }
+    }
+
+    pub fn set_mode(&mut self, mode: SpatialMode, sample_rate: u32) {
+        self.mode = mode;
+        self.params = mode.params();
+        self.crossfeed.set_enabled(mode != SpatialMode::Off);
+        self.hrtf.set_intensity(self.params.hrtf_gain);
+        self.reflections_l.set_mix(self.params.reflection_gain);
+        self.reflections_r.set_mix(self.params.reflection_gain);
+        self.crossfeed.prepare(sample_rate);
+    }
+
+    pub fn set_params(&mut self, params: SpatialParams) {
+        self.params = params;
+        self.crossfeed.set_enabled(params.width > 0.01);
+        self.hrtf.set_intensity(params.hrtf_gain);
+        self.reflections_l.set_mix(params.reflection_gain);
+        self.reflections_r.set_mix(params.reflection_gain);
+    }
+
+    #[inline(always)]
+    pub fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
+        if self.mode == SpatialMode::Off {
+            return (left, right);
+        }
+
+        // Stage 1: Bauer Crossfeed for stereo widening
+        let (cf_left, cf_right) = if self.params.crossfeed_gain > 0.01 {
+            self.crossfeed.process_frame(left, right)
+        } else {
+            (left, right)
+        };
+
+        // Stage 2: HRTF scene widening (ITD + ILD)
+        let (hrtf_left, hrtf_right) = if self.params.hrtf_gain > 0.01 {
+            self.hrtf.process_frame(cf_left, cf_right)
+        } else {
+            (cf_left, cf_right)
+        };
+
+        // Stage 3: Early reflections for depth
+        let final_left = if self.params.reflection_gain > 0.01 {
+            self.reflections_l.process_sample(hrtf_left)
+        } else {
+            hrtf_left
+        };
+
+        let final_right = if self.params.reflection_gain > 0.01 {
+            self.reflections_r.process_sample(hrtf_right)
+        } else {
+            hrtf_right
+        };
+
+        (final_left, final_right)
+    }
+
+    pub fn reset(&mut self) {
+        self.crossfeed.reset();
+        self.hrtf.reset();
+        self.reflections_l.reset();
+        self.reflections_r.reset();
     }
 }
 
@@ -308,69 +652,77 @@ impl SpatialMode {
 // Native Passthrough Engine
 // ==============================================================================
 
-/// Native passthrough engine with optional BS2B crossfeed.
+/// Native passthrough engine with advanced spatial audio processing.
 ///
 /// When disabled: pure 1:1 bit-exact passthrough with zero processing.
-/// When enabled with BS2B mode: applies lightweight frequency-selective crossfeed.
+/// When enabled: applies advanced spatial DSP chain (crossfeed, HRTF, early reflections).
 #[derive(Clone, Debug)]
 pub struct DolbyAtmosPassthroughEngine {
-    crossfeed: CrossfeedEngine,
+    engine: AdvancedSpatialEngine,
 }
 
 impl DolbyAtmosPassthroughEngine {
     pub fn new() -> Self {
         Self {
-            crossfeed: CrossfeedEngine::new(false),
+            engine: AdvancedSpatialEngine::new(SpatialMode::Off, 44100),
         }
     }
 
     pub fn with_mode(mode: SpatialMode) -> Self {
-        match mode {
-            SpatialMode::BS2BCrossfeed => Self {
-                crossfeed: CrossfeedEngine::new(true),
-            },
+        Self {
+            engine: AdvancedSpatialEngine::new(mode, 44100),
         }
     }
 
     /// Returns the required WASAPI audio stream flags.
     pub fn wasapi_stream_flags(&self) -> u32 {
-        // BS2B crossfeed is applied in software, not via WASAPI flags
-        // The stream runs as standard stereo PCM
+        // Advanced spatial processing is applied in software
         0
     }
 
     /// Process a stereo frame
     #[inline(always)]
     pub fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
-        self.crossfeed.process_frame(left, right)
+        self.engine.process_frame(left, right)
     }
 
-    /// Check if crossfeed is enabled
+    /// Check if spatial processing is enabled
     pub fn is_enabled(&self) -> bool {
-        self.crossfeed.is_enabled()
+        self.engine.mode != SpatialMode::Off
     }
 
-    /// Enable or disable crossfeed
+    /// Enable or disable spatial processing
     pub fn set_enabled(&mut self, enabled: bool) {
-        self.crossfeed.set_enabled(enabled);
+        if enabled && self.engine.mode == SpatialMode::Off {
+            self.engine.set_mode(SpatialMode::Studio, 44100);
+        } else if !enabled {
+            self.engine.set_mode(SpatialMode::Off, 44100);
+        }
     }
 
     /// Set the spatial mode
     pub fn set_mode(&mut self, mode: SpatialMode) {
-        match mode {
-            SpatialMode::BS2BCrossfeed => {
-                self.crossfeed.set_enabled(true);
-            }
-        }
+        self.engine.set_mode(mode, 44100);
+    }
+
+    /// Get current mode
+    pub fn mode(&self) -> SpatialMode {
+        self.engine.mode
+    }
+
+    /// Set custom parameters
+    pub fn set_params(&mut self, params: SpatialParams) {
+        self.engine.set_params(params);
     }
 
     /// Prepare for a specific sample rate
     pub fn prepare(&mut self, sample_rate: u32) {
-        self.crossfeed.prepare(sample_rate);
+        let mode = self.engine.mode;
+        self.engine = AdvancedSpatialEngine::new(mode, sample_rate);
     }
 
     pub fn reset(&mut self) {
-        self.crossfeed.reset();
+        self.engine.reset();
     }
 }
 
@@ -451,8 +803,11 @@ impl SpatialAudioProcessor {
     /// Current active spatial audio mode.
     pub fn mode(&self) -> SpatialMode {
         match self.shared.mode_id.load(Ordering::Relaxed) {
-            0 => SpatialMode::BS2BCrossfeed,
-            _ => SpatialMode::BS2BCrossfeed,
+            0 => SpatialMode::Off,
+            1 => SpatialMode::Studio,
+            2 => SpatialMode::WideStage,
+            3 => SpatialMode::ConcertHall,
+            _ => SpatialMode::Off,
         }
     }
 
@@ -482,26 +837,33 @@ impl SpatialAudioProcessor {
 
     /// Process a slice of interleaved 2-channel stereo PCM samples in-place.
     ///
-    /// Implements BitChord philosophy with BS2B:
-    /// - When disabled: pure 1:1 bit-exact passthrough
-    /// - When enabled: BS2B crossfeed (700 Hz low-pass, ~4.5 dB attenuation)
+    /// When disabled: pure 1:1 bit-exact passthrough
+    /// When enabled: Advanced spatial DSP chain (crossfeed, HRTF, reflections)
     pub fn process_interleaved(&self, buffer: &mut [f32]) -> Result<(), AudioError> {
-        if buffer.len() % 2 != 0 {
+        if !buffer.len().is_multiple_of(2) {
             return Err(AudioError::ChannelMismatch {
                 expected: 2,
                 found: buffer.len() % 2,
             });
         }
 
-        // BitChord philosophy: Pure 1:1 bit-exact passthrough when disabled
+        // Pure passthrough when disabled
         if !self.shared.enabled.load(Ordering::Relaxed) {
             return Ok(());
         }
 
-        // BS2B crossfeed mode - process in-place
+        // Apply advanced spatial processing
         if let Ok(ref mut dsp) = self.dsp.try_lock() {
-            let mut engine = CrossfeedEngine::with_sample_rate(true, dsp.sample_rate);
-            engine.process_buffer(buffer);
+            let mode = self.mode();
+            let mut engine = AdvancedSpatialEngine::new(mode, dsp.sample_rate);
+
+            let frames = buffer.len() / 2;
+            for i in 0..frames {
+                let idx = i * 2;
+                let (left, right) = engine.process_frame(buffer[idx], buffer[idx + 1]);
+                buffer[idx] = left;
+                buffer[idx + 1] = right;
+            }
         }
 
         Ok(())
@@ -523,7 +885,7 @@ impl SpatialAudioProcessor {
 
 impl Default for SpatialAudioProcessor {
     fn default() -> Self {
-        Self::new(false, SpatialMode::BS2BCrossfeed)
+        Self::new(false, SpatialMode::Off)
     }
 }
 
@@ -549,7 +911,8 @@ impl<I: Source<Item = f32>> SpatialSource<I> {
         let channels = input.channels();
 
         let engine = if processor.is_enabled() {
-            Some(CrossfeedEngine::with_sample_rate(true, sample_rate.get()))
+            let mode = processor.mode();
+            Some(AdvancedSpatialEngine::new(mode, sample_rate.get()).crossfeed)
         } else {
             None
         };
@@ -630,7 +993,7 @@ mod tests {
 
     #[test]
     fn test_modes_enumeration() {
-        assert_eq!(SpatialMode::ALL.len(), 1);
+        assert_eq!(SpatialMode::ALL.len(), 4);
         for mode in SpatialMode::ALL {
             assert_eq!(SpatialMode::from_id(mode.id()), Some(mode));
         }
@@ -711,23 +1074,82 @@ mod tests {
 
     #[test]
     fn test_dolby_engine_modes() {
-        let mut engine = DolbyAtmosPassthroughEngine::with_mode(SpatialMode::BS2BCrossfeed);
+        let mut engine = DolbyAtmosPassthroughEngine::with_mode(SpatialMode::Studio);
         assert!(engine.is_enabled());
+        assert_eq!(engine.mode(), SpatialMode::Studio);
 
         engine.set_enabled(false);
         assert!(!engine.is_enabled());
 
-        engine.set_enabled(true);
+        engine.set_mode(SpatialMode::WideStage);
         assert!(engine.is_enabled());
+        assert_eq!(engine.mode(), SpatialMode::WideStage);
     }
 
     #[test]
     fn test_wasapi_flags_clean() {
-        // BS2B runs as standard stereo PCM, no WASAPI flags needed
-        let processor = SpatialAudioProcessor::new(true, SpatialMode::BS2BCrossfeed);
+        // Advanced spatial processing runs as standard stereo PCM, no WASAPI flags needed
+        let processor = SpatialAudioProcessor::new(true, SpatialMode::WideStage);
         assert_eq!(processor.wasapi_stream_flags(), 0);
 
-        let processor = SpatialAudioProcessor::new(false, SpatialMode::BS2BCrossfeed);
+        let processor = SpatialAudioProcessor::new(false, SpatialMode::Off);
         assert_eq!(processor.wasapi_stream_flags(), 0);
+    }
+
+    #[test]
+    fn test_spatial_params() {
+        let studio = SpatialMode::Studio.params();
+        assert!(studio.width > 0.0 && studio.width < 0.5);
+
+        let wide = SpatialMode::WideStage.params();
+        assert!(wide.width > studio.width);
+
+        let concert = SpatialMode::ConcertHall.params();
+        assert!(concert.width > wide.width);
+    }
+
+    #[test]
+    fn test_hrtf_engine() {
+        let mut hrtf = HrtfEngine::new(48000, 0.5);
+
+        // Test passthrough when intensity is 0
+        hrtf.set_intensity(0.0);
+        let (left, right) = hrtf.process_frame(0.5, -0.5);
+        assert!((left - 0.5).abs() < 1e-6);
+        assert!((right - (-0.5)).abs() < 1e-6);
+
+        // Test processing when enabled
+        hrtf.set_intensity(0.5);
+        let (left2, right2) = hrtf.process_frame(0.5, -0.5);
+        assert!(left2 != 0.5 || right2 != -0.5);
+    }
+
+    #[test]
+    fn test_early_reflections() {
+        let mut reflections = EarlyReflectionsEngine::new(48000, 0.3);
+
+        // Test that output differs from input when enabled
+        let output = reflections.process_sample(0.5);
+        assert!(output != 0.5);
+
+        // Test passthrough when mix is 0
+        reflections.set_mix(0.0);
+        let output2 = reflections.process_sample(0.5);
+        assert!((output2 - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_advanced_spatial_engine() {
+        let mut engine = AdvancedSpatialEngine::new(SpatialMode::WideStage, 48000);
+
+        // Test processing
+        let (left, right) = engine.process_frame(0.5, -0.5);
+        assert!(left != 0.5 || right != -0.5);
+
+        // Test mode switching
+        engine.set_mode(SpatialMode::Off, 48000);
+        let (left2, right2) = engine.process_frame(0.5, -0.5);
+        assert!((left2 - 0.5).abs() < 1e-6);
+        assert!((right2 - (-0.5)).abs() < 1e-6);
     }
 }

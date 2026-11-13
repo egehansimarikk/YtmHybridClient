@@ -7,12 +7,12 @@ use storage::Database;
 
 use crate::{Io, Session, SessionEvent, join};
 
-const ENDPOINT: &str = "https://sonora-stats.nolight.dev/install";
+const ENDPOINT: &str = "https://ytm-hybrid-stats.nolight.dev/install";
 const RUNNING: &str = env!("CARGO_PKG_VERSION");
 const AGENT: &str = concat!(
-    "sonora/",
+    "ytm-hybrid/",
     env!("CARGO_PKG_VERSION"),
-    " (https://github.com/sonorahq/sonora)"
+    " (https://github.com/egehansimarikk/YtmHybridClient)"
 );
 const REPORTED: &str = "reported_usage";
 const LOGGED_IN: &str = "logged_in_once";

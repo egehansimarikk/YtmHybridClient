@@ -78,6 +78,7 @@ const PACE: &str = "pace";
 const SAVER: &str = "saver";
 const SLEEP: &str = "sleep";
 const EQUALIZER_PRESETS: &str = "equalizer-presets";
+const SPATIAL_AUDIO_MODE: &str = "spatial-audio-mode";
 // the step a dragged band snaps to, in decibels
 const EQUALIZER_STEP: f32 = 0.5;
 const SLEEP_MAX_MINUTES: u64 = 120;
@@ -181,6 +182,7 @@ enum Slot {
     EqualizerPreset,
     EqualizerBands,
     SpatialAudio,
+    SpatialAudioMode,
     LyricsProviders,
     // LyricsPriority removed for YTM Hybrid
     Karaoke,
@@ -262,6 +264,7 @@ struct Member {
 }
 
 #[derive(Clone, Copy)]
+#[allow(dead_code)]
 enum Role {
     LeadMaintainer,
     Maintainer,
@@ -631,11 +634,14 @@ impl SettingsView {
                 slots.extend([Slot::Title("settings-group-lyrics"), Slot::LyricsProviders]);
                 // YTM Hybrid: Removed LyricsPriority section (YouTube Music + LrcLib only)
                 slots.extend([Slot::Karaoke, Slot::Romanized]);
-                // Spatial Audio section - single toggle only (BitChord native passthrough)
+                // Spatial Audio section with advanced presets
                 slots.extend([
                     Slot::Title("settings-group-spatial-audio"),
                     Slot::SpatialAudio,
                 ]);
+                if self.playback.read(cx).spatial_audio() {
+                    slots.push(Slot::SpatialAudioMode);
+                }
                 slots
             }
             SettingsTab::Privacy => {
@@ -796,6 +802,10 @@ impl SettingsView {
             Slot::SpatialAudio => (
                 t!("settings-spatial-audio"),
                 t!("settings-spatial-audio-detail"),
+            ),
+            Slot::SpatialAudioMode => (
+                t!("settings-spatial-audio-mode"),
+                t!("settings-spatial-audio-mode-detail"),
             ),
             Slot::LyricsProviders => (
                 t!("settings-lyrics-providers"),
@@ -1009,6 +1019,7 @@ impl SettingsView {
             Slot::EqualizerPreset => self.equalizer_preset_row(cx).element,
             Slot::EqualizerBands => self.equalizer_bands_row(cx).element,
             Slot::SpatialAudio => self.spatial_audio_row(cx).element,
+            Slot::SpatialAudioMode => self.spatial_audio_mode_row(cx).element,
             Slot::LyricsProviders => self.lyrics_providers_row(cx).element,
             // YTM Hybrid: LyricsPriority removed
             Slot::Karaoke => self.karaoke_lyrics_row(cx).element,
@@ -2446,6 +2457,38 @@ impl SettingsView {
         )
     }
 
+    fn spatial_audio_mode_row(&self, cx: &mut Context<Self>) -> Setting {
+        let theme = *cx.theme();
+        let muted = theme.muted_foreground;
+        let small = theme.text(Text::Small);
+        let chosen = self.settings.read(cx).spatial_audio_mode();
+
+        let picker = Picker::new(
+            SPATIAL_AUDIO_MODE,
+            &self.popovers,
+            SharedString::from(chosen.display_name()),
+        )
+        .width(Picker::NARROW)
+        .items(music::spatial::SpatialMode::ALL.map(|mode| {
+            MenuItem::new(mode.id(), SharedString::from(mode.display_name()))
+                .selected(chosen == mode)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings.update(cx, |settings, cx| {
+                        settings.set_spatial_audio_mode(mode, cx)
+                    });
+                    cx.notify();
+                }))
+        }));
+
+        self.row(
+            t!("settings-spatial-audio-mode"),
+            t!("settings-spatial-audio-mode-detail"),
+            muted,
+            small,
+            picker.into_any_element(),
+        )
+    }
+
     fn sleep_row(&self, cx: &mut Context<Self>) -> Setting {
         let theme = *cx.theme();
         let muted = theme.muted_foreground;
@@ -2902,7 +2945,7 @@ impl SettingsView {
         let muted = theme.muted_foreground;
         let small = theme.text(Text::Small);
         let settings = self.settings.read(cx);
-        let sonora = settings.discord_sonora_button();
+        let ytm_hybrid = settings.discord_ytm_hybrid_button();
         let provider = settings.discord_provider_button();
 
         let picker = Picker::new(
@@ -2926,11 +2969,11 @@ impl SettingsView {
             })),
         )
         .item(
-            MenuItem::new("discord-button-sonora", t!("settings-discord-name-sonora"))
-                .selected(sonora)
+            MenuItem::new("discord-button-ytm-hybrid", t!("settings-discord-name-YTM Hybrid"))
+                .selected(ytm_hybrid)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings.update(cx, |settings, cx| {
-                        settings.set_discord_sonora_button(!sonora, cx)
+                        settings.set_discord_ytm_hybrid_button(!ytm_hybrid, cx)
                     });
                     cx.notify();
                 })),

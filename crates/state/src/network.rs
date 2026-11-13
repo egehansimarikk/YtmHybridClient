@@ -105,7 +105,7 @@ impl Network {
 
     /// Opens a connection to the active provider's host until one succeeds, waiting longer
     /// between tries as they keep failing. Nothing is asked of the host but the connection, and
-    /// it is one the app talks to anyway, so no other service ever learns Sonora is running. A
+    /// it is one the app talks to anyway, so no other service ever learns YTM Hybrid is running. A
     /// provider that needs no network hands back no host, and then nothing is tried at all.
     fn watch(&mut self, cx: &mut Context<Self>) {
         let io = self.io.clone();

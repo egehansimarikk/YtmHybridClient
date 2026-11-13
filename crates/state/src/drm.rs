@@ -1,11 +1,11 @@
 //! Whether this machine can decrypt protected tracks.
 //!
-//! Sonora ships no Widevine module: Google publishes nothing anyone may redistribute. It does
+//! YTM Hybrid ships no Widevine module: Google publishes nothing anyone may redistribute. It does
 //! what Kodi does instead. A copy a browser on the machine already has is used as it lies.
 //! Nothing is looked for until the current provider is one whose tracks need the module, so a
 //! Spotify or YouTube run never touches a browser folder. With none found, the user is asked
 //! whether to download it from Google, shown Google's terms out of the downloaded archive, and
-//! asked again before it is installed into Sonora's own store. Settings offers the same
+//! asked again before it is installed into YTM Hybrid's own store. Settings offers the same
 //! download beside a browser's copy, since that copy can be one the host cannot open. A
 //! module accepted that way is preferred over any browser's and kept current without asking
 //! again. With nothing accepted, protected providers keep their metadata and refuse to play.
@@ -115,7 +115,7 @@ impl Drm {
     }
 
     /// Answers from what is already here, off the network. With nothing here and a protected
-    /// account present, the user is asked; with a module Sonora fetched before, a newer one is
+    /// account present, the user is asked; with a module YTM Hybrid fetched before, a newer one is
     /// fetched quietly.
     pub fn look(&mut self, cx: &mut Context<Self>) {
         self.looked = true;
@@ -237,7 +237,7 @@ impl Drm {
         }));
     }
 
-    /// Removes the module Sonora fetched from Google and settles on whatever else is here, a
+    /// Removes the module YTM Hybrid fetched from Google and settles on whatever else is here, a
     /// browser's copy or nothing. Nothing is asked again this run.
     pub fn uninstall(&mut self, cx: &mut Context<Self>) {
         self.offer = None;
