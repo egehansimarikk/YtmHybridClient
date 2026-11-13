@@ -27,11 +27,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-          lld clang pkg-config libfontconfig1-dev libfreetype-dev \
-          libasound2-dev libwayland-dev libxkbcommon-dev \
-          libxkbcommon-x11-dev libx11-xcb-dev libxcb-render0-dev \
-          libxcb-shape0-dev libxcb-xfixes0-dev libvulkan-dev \
-          libssl-dev libdbus-1-dev
+            lld clang pkg-config libfontconfig1-dev libfreetype-dev \
+            libasound2-dev libwayland-dev libxkbcommon-dev \
+            libxkbcommon-x11-dev libx11-xcb-dev libxcb-render0-dev \
+            libxcb-shape0-dev libxcb-xfixes0-dev libvulkan-dev \
+            libssl-dev libdbus-1-dev
 
       - name: Install cargo-deb
         run: cargo install cargo-deb --locked
@@ -234,77 +234,54 @@ jobs:
 
       - name: Extract version from tag
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=0.4.0" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create Release Notes
         run: |
           cat > RELEASE_NOTES.md << 'EOF'
-          ## YTM Hybrid v${{ steps.get_version.outputs.VERSION }}
+          ## What's New in v0.4.0
 
-          ### 🎉 What's New in v0.3.0
+          ### 🎧 Advanced Spatial Audio Engine
+          - **Bauer Crossfeed**: Integrated microsecond-delayed crossfeed with IIR low-pass filtering to eliminate headphone "in-head localization" fatigue.
+          - **HRTF 3D Stage Expansion**: High-precision ITD (Interaural Time Difference) ring buffer and ILD (Interaural Level Difference) high-shelf head-shadow modeling.
+          - **Early Reflections**: Multi-tap delay line (6-tap architectural acoustic simulation) adding natural depth and room resonance without muddying the mix.
+          - **Spatial Audio Presets & UI**: Added settings controls and state persistence for 4 distinct modes: **Off**, **Studio (Intimate)**, **Wide Stage**, and **Concert Hall**.
 
-          #### 🔧 Infrastructure Improvements
-          - **Complete Sonora Isolation**: All config, cache, and data directories now use `ytm-hybrid` branding
-          - **MPRIS Integration**: D-Bus service updated to `org.mpris.MediaPlayer2.ytm-hybrid`
-          - **Wayland/Hyprland Icon Matching**: Proper `app_id` and `StartupWMClass` for perfect icon matching 
+          ### 🛠️ Linux Sound Routing & PipeWire Optimization
+          - Created dedicated low-latency WirePlumber routing rules (`50-spatial-routing.conf`) ensuring bit-perfect 48kHz/F32LE streaming and clean JamesDSP passthrough compatibility.
 
-          #### 📦 New Installation Options
-          - **Linux**: New `install.sh` script for user-local installation
-            Installs to `~/.local/bin/ytm-hybrid`
-            Desktop entry with proper icon paths
-            Easy uninstall with `./install.sh --uninstall`
-          - **macOS**: Official `.dmg` installer with proper app bundle
-          - **Windows**: Standalone executable 
-
-          #### 🎨 Features Already Available
-          - ✅ Visualizer with multiple modes (Bars, Wave, Both)
-          - ✅ 10-band equalizer with 12 built-in presets
-          - ✅ Discord Rich Presence
-          - ✅ MPRIS media controls (Linux)
-          - ✅ Gapless playback with audio normalization
-          - ✅ Synced/karaoke lyrics support 
-
-          ### 📥 Downloads
-
-          Choose the package for your platform:
-
-          #### Linux
-          - **`.deb` (Debian/Ubuntu)**: `ytm-hybrid_0.3.0_amd64.deb`
-          - **`.tar.gz` (Portable)**: `ytm-hybrid-v0.3.0-linux-x64.tar.gz`
-            Includes `install.sh` for easy installation
-            Run `./install.sh` to install, `./install.sh --uninstall` to remove 
-
-          #### Windows
-          - **Portable executable**: `ytm-hybrid.exe` 
-
-          #### macOS
-          - **DMG installer**: `YTM-Hybrid-0.3.0-macOS.dmg`
-            Drag to Applications folder
-            First launch: Right-click → Open (Gatekeeper bypass) 
-
-          ### ✅ Verify Downloads
-
-          All packages include SHA256 checksums. Verify your download:
-
-          ```bash
-          # Linux
-          sha256sum -c SHA256SUMS-linux.txt
-
-          # macOS
-          shasum -a 256 -c SHA256SUMS-macos.txt
-
-          # Windows (PowerShell)
-          Get-FileHash ytm-hybrid.exe -Algorithm SHA256
-          ```
-
-          ### 🔗 Links
-          - **Repository**: https://github.com/egehansimarikk/YtmHybridClient
-          - **Issues**: Report bugs or request features
-          - **License**: GPL-3.0-or-later 
+          ### 🧹 Branding & CI/CD Refinements
+          - **Complete Rebranding**: Purged legacy "Sonora" references across UI settings, network usage logs, and Discord Rich Presence integrations, fully standardizing on **YTM Hybrid**.
+          - **Robust CI/CD Workflows**: Enhanced GitHub Actions release asset collection with nested fallback paths (`dist/`, `target/debian/`) ensuring automated artifact uploads.
 
           ---
 
-          **Full Changelog**: [v0.2.0...v0.3.0](https://github.com/egehansimarikk/YtmHybridClient/compare/v0.2.0...v0.3.0)
+          ## Installation
+
+          ### Windows
+          - **Installer (Recommended)**: [`ytm-hybrid-Setup.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid-Setup.exe) (Includes Start Menu shortcuts and automated protocol registration).
+          - **Portable**: [`ytm-hybrid.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid.exe).
+
+          ### Linux
+          - **Debian / Ubuntu / Mint (.deb)**: [`ytm-hybrid_0.4.0_amd64.deb`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid_0.4.0_amd64.deb)
+          - **Generic Tarball (.tar.gz)**: [`ytm-hybrid-v0.4.0-linux-x64.tar.gz`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid-v0.4.0-linux-x64.tar.gz) (Includes `install.sh` for user bin deployment and desktop integration).
+
+          ### macOS
+          - **Disk Image (.dmg)**: [`YTM-Hybrid-0.4.0-macOS.dmg`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/YTM-Hybrid-0.4.0-macOS.dmg).
+
+          ---
+
+          ## Verify Downloads
+          SHA256 checksum files are provided in the assets list (`SHA256SUMS.txt`, `SHA256SUMS-linux.txt`, `SHA256SUMS-windows.txt`, `SHA256SUMS-macos.txt`) to verify file integrity.
+
+          ---
+
+          **Full Changelog**: [v0.3.0...v0.4.0](https://github.com/egehansimarikk/YtmHybridClient/compare/v0.3.0...v0.4.0)
           EOF
 
       - name: Create GitHub Release
