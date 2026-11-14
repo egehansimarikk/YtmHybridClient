@@ -225,7 +225,9 @@ if command -v appimagetool &> /dev/null; then
     chmod +x "$APP_DIR/usr/bin/ytm-hybrid"
 
     cp "$PROJECT_DIR/assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png" "$APP_DIR/usr/share/icons/hicolor/256x256/apps/ytm-hybrid.png"
+    cp "$PROJECT_DIR/assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png" "$APP_DIR/ytm-hybrid.png"
     cp "$PROJECT_DIR/assets/linux/ytm-hybrid.desktop" "$APP_DIR/usr/share/applications/ytm-hybrid.desktop"
+    cp "$PROJECT_DIR/assets/linux/ytm-hybrid.desktop" "$APP_DIR/ytm-hybrid.desktop"
 
     cat > "$APP_DIR/AppRun" << 'EOF'
 #!/bin/sh
@@ -235,7 +237,7 @@ EOF
     chmod +x "$APP_DIR/AppRun"
 
     APPIMAGE_OUT="$DIST_DIR/YTM_Hybrid-v${VERSION}-x86_64.AppImage"
-    appimagetool --compact --no-appstream "$APP_DIR" "$APPIMAGE_OUT"
+    ARCH=x86_64 appimagetool --no-appstream "$APP_DIR" "$APPIMAGE_OUT"
     echo "  Created: $APPIMAGE_OUT"
 else
     echo "  Warning: appimagetool not found. Skipping AppImage generation."
