@@ -232,17 +232,59 @@ if ($MakeAppxItem) {
     Write-Host "Packing MSIX using MakeAppx..." -ForegroundColor Yellow
     & $MakeAppxItem.FullName pack /d $MsixStaging /p $MsixOutputPath /o /v
 
-    # Sign MSIX with a self-signed certificate matching Publisher="CN=Egehan Simarik"
+    # Sign MSIX with a self-signed certificate matching Publisher="CN=Egehan Simarik" (-NotBefore 7 days back for clock skew tolerance)
     $SignToolPath = Join-Path $SdkBinDir "signtool.exe"
     if (Test-Path $SignToolPath) {
         Write-Host "Signing MSIX package..." -ForegroundColor Yellow
-        $Cert = New-SelfSignedCertificate -Type Custom -Subject "CN=Egehan Simarik" -KeyUsage DigitalSignature -FriendlyName "YTM Hybrid Dev Cert" -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+        $Cert = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject "CN=Egehan Simarik" `
+            -KeyUsage DigitalSignature `
+            -FriendlyName "YTM Hybrid Dev Cert" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -NotBefore (Get-Date).AddDays(-7) `
+            -NotAfter (Get-Date).AddYears(5) `
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
         $PfxPath = Join-Path $env:TEMP "ytm-hybrid-temp.pfx"
         $PfxPass = ConvertTo-SecureString -String "ytmhybrid" -Force -AsPlainText
         Export-PfxCertificate -Cert $Cert -FilePath $PfxPath -Password $PfxPass | Out-Null
         & $SignToolPath sign /fd SHA256 /a /f $PfxPath /p "ytmhybrid" $MsixOutputPath
         Remove-Item -Path $PfxPath -Force -ErrorAction SilentlyContinue
     }
+
+    # Generate companion double-click install-msix.bat in dist/
+    $MsixBatPath = Join-Path $DistDir "install-msix.bat"
+    @'
+@echo off
+title YTM Hybrid MSIX Kurulumu
+
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Yonetici yetkisi isteniyor...
+    powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b
+)
+
+echo === YTM Hybrid MSIX Kurulumu Baslatiliyor ===
+echo.
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$ErrorActionPreference = 'Stop';" ^
+  "$dirs = @('%~dp0', \"$env:USERPROFILE\Downloads\", \"$env:USERPROFILE\Desktop\") | Where-Object { Test-Path $_ };" ^
+  "$msix = $dirs | ForEach-Object { Get-ChildItem -Path $_ -Filter 'ytm-hybrid-*.msix' -File -ErrorAction SilentlyContinue } | Sort-Object LastWriteTime -Descending | Select-Object -First 1;" ^
+  "if (-not $msix) { throw 'ytm-hybrid-*.msix dosyasi bulunamadi! Lutfen .bat ve .msix dosyasini ayni klasore koyun.' };" ^
+  "Write-Host ('Paket bulundu: ' + $msix.FullName) -ForegroundColor Green;" ^
+  "$sig = Get-AuthenticodeSignature -FilePath $msix.FullName;" ^
+  "if (-not $sig.SignerCertificate) { throw 'MSIX paketinde dijital imza bulunamadi!' };" ^
+  "Write-Host 'Sertifika guvenilen depolara ekleniyor...' -ForegroundColor Yellow;" ^
+  "foreach ($s in @('Root', 'TrustedPeople')) { $st = New-Object System.Security.Cryptography.X509Certificates.X509Store($s, 'LocalMachine'); $st.Open('ReadWrite'); if (-not ($st.Certificates | Where-Object { $_.Thumbprint -eq $sig.SignerCertificate.Thumbprint })) { $st.Add($sig.SignerCertificate) }; $st.Close() };" ^
+  "Write-Host 'YTM Hybrid kuruluyor...' -ForegroundColor Yellow;" ^
+  "Add-AppxPackage -Path $msix.FullName -ForceApplicationShutdown;" ^
+  "Write-Host 'Kurulum basariyla tamamlandi!' -ForegroundColor Green"
+
+echo.
+pause
+'@ | Set-Content -Path $MsixBatPath -Encoding ASCII
 
     Remove-Item -Path $MsixStaging -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "Created MSIX: $MsixOutputPath" -ForegroundColor Green
