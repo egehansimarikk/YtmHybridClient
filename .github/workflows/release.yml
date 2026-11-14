@@ -33,10 +33,9 @@ jobs:
             libxcb-shape0-dev libxcb-xfixes0-dev libvulkan-dev \
             libssl-dev libdbus-1-dev libfuse2
 
-      - name: Install cargo-deb & appimagetool (via cargo)
+      - name: Install cargo-deb & appimagetool
         run: |
           cargo install cargo-deb --locked
-          # appimagetool indirme (isteğe bağlı, paket scripti içinde kontrol ediliyor)
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
           chmod +x /usr/local/bin/appimagetool
 
@@ -60,7 +59,7 @@ jobs:
 
       - name: Run Multi-Platform Linux Packaging Script
         run: |
-          chmod +x ./packaging/package.sh # Scriptin konumuna göre ayarlayabilirsin (örn: ./package.sh)
+          chmod +x ./package.sh || chmod +x ./packaging/package.sh
           ./package.sh || ./packaging/package.sh
 
       - name: Generate SHA256 checksums
@@ -108,8 +107,11 @@ jobs:
       - name: Run Windows Packaging Script
         shell: pwsh
         run: |
-          # package-windows.ps1 scriptini çalıştırarak ZIP, install.ps1 ve MSIX üretir
-          .\packaging\package-windows.ps1 -Version "0.4.2" -Build
+          if (Test-Path ".\package-windows.ps1") {
+              .\package-windows.ps1 -Version "0.4.2" -Build
+          } else {
+              .\packaging\package-windows.ps1 -Version "0.4.2" -Build
+          }
 
       - name: Generate SHA256 checksums
         shell: pwsh
@@ -162,11 +164,13 @@ jobs:
 
       - name: Build release binary & create DMG
         run: |
-          chmod +x ./packaging/macos/build-dmg.sh
-          ./packaging/macos/build-dmg.sh || {
+          if [ -f "./packaging/macos/build-dmg.sh" ]; then
+            chmod +x ./packaging/macos/build-dmg.sh
+            ./packaging/macos/build-dmg.sh
+          else
             cargo bundle --release
             create-dmg --volname "YTM Hybrid" --window-size 600 400 --icon-size 80 --icon "YTM Hybrid.app" 180 190 --app-drop-link 420 190 dist/YTM_Hybrid-v0.4.2-x64.dmg target/release/bundle/macOS/
-          }
+          fi
 
       - name: Generate SHA256 checksum
         run: |
@@ -205,10 +209,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          # Tüm artifact klasörlerindeki dosyaları düzleştirerek release-assets altına kopyala
           find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.zip" -o -name "*.msix" -o -name "*.dmg" -o -name "*.exe" -o -name "*.txt" \) -exec cp {} release-assets/ \;
-          
-          # Checksum dosyalarını birleştir
           cat artifacts/*/SHA256SUMS-*.txt > release-assets/SHA256SUMS.txt 2>/dev/null || true
 
       - name: Extract version from tag
