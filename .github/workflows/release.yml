@@ -8,6 +8,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  APPIMAGE_EXTRACT_AND_RUN: 1
 
 jobs:
   # ===========================================================================
@@ -31,13 +32,14 @@ jobs:
             libasound2-dev libwayland-dev libxkbcommon-dev \
             libxkbcommon-x11-dev libx11-xcb-dev libxcb-render0-dev \
             libxcb-shape0-dev libxcb-xfixes0-dev libvulkan-dev \
-            libssl-dev libdbus-1-dev libfuse2
+            libssl-dev libdbus-1-dev
+          sudo apt-get install -y libfuse2 || sudo apt-get install -y libfuse2t64 || true
 
       - name: Install cargo-deb & appimagetool
         run: |
           cargo install cargo-deb --locked
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
-          chmod +x /usr/local/bin/appimagetool
+          sudo wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+          sudo chmod +x /usr/local/bin/appimagetool
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -74,8 +76,10 @@ jobs:
         run: |
           cd dist
           sha256sum ytm-hybrid-v*-linux-x64.tar.gz YTM_Hybrid-v*-x86_64.AppImage > SHA256SUMS-linux.txt 2>/dev/null || true
-          cd ../target/debian
-          sha256sum ytm-hybrid_*.deb >> ../../dist/SHA256SUMS-linux.txt 2>/dev/null || true
+          if [ -d "../target/debian" ]; then
+            cd ../target/debian
+            sha256sum ytm-hybrid_*.deb >> ../../dist/SHA256SUMS-linux.txt 2>/dev/null || true
+          fi
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -129,10 +133,11 @@ jobs:
         shell: pwsh
         run: |
           cd dist
-          Get-ChildItem -File | ForEach-Object {
+          $files = Get-ChildItem -File -Exclude "SHA256SUMS*"
+          $files | ForEach-Object {
               $hash = (Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower()
-              "$hash $($_.Name)"
-          } | Out-File -FilePath "SHA256SUMS-windows.txt" -Encoding ascii
+              "$hash  $($_.Name)"
+          } | Out-File -FilePath "SHA256SUMS-windows.txt" -Encoding utf8
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -182,7 +187,20 @@ jobs:
           else
             cargo bundle --release
             mkdir -p dist
-            create-dmg --volname "YTM Hybrid" --window-size 600 400 --icon-size 80 --icon "YTM Hybrid.app" 180 190 --app-drop-link 420 190 dist/YTM_Hybrid-v0.4.2-x64.dmg target/release/bundle/macOS/
+            BUNDLE_DIR="target/release/bundle/osx"
+            [ ! -d "$BUNDLE_DIR" ] && BUNDLE_DIR="target/release/bundle/macos"
+            APP_PATH=$(find "$BUNDLE_DIR" -maxdepth 1 -name "*.app" | head -n 1)
+            APP_NAME=$(basename "$APP_PATH")
+            DMG_PATH="dist/YTM_Hybrid-v0.4.2-x64.dmg"
+            rm -f "$DMG_PATH"
+            create-dmg \
+              --volname "YTM Hybrid" \
+              --window-size 600 400 \
+              --icon-size 80 \
+              --icon "$APP_NAME" 180 190 \
+              --app-drop-link 420 190 \
+              "$DMG_PATH" \
+              "$BUNDLE_DIR/" || hdiutil create -volname "YTM Hybrid" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
           fi
 
       - name: Generate SHA256 checksum
@@ -222,7 +240,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.zip" -o -name "*.msix" -o -name "*.dmg" -o -name "*.exe" -o -name "*.txt" \) -exec cp {} release-assets/ \;
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.zip" -o -name "*.msix" -o -name "*.dmg" -o -name "*.exe" \) -exec cp {} release-assets/ \;
           cat artifacts/*/SHA256SUMS-*.txt > release-assets/SHA256SUMS.txt 2>/dev/null || true
 
       - name: Extract version from tag
