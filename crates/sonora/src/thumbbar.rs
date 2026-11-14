@@ -1,6 +1,6 @@
 //! The thumbnail toolbar Windows draws under the taskbar preview.
 //!
-//! Hovering Sonora's taskbar button opens a thumbnail of the window, and this
+//! Hovering YTM Hybrid's taskbar button opens a thumbnail of the window, and this
 //! puts previous, play/pause and next underneath it, so playback can be driven
 //! without raising the window. They are the same three commands the tray menu
 //! carries and they reach [`state::Playback`] the same way, through an
@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 use gpui::{App, AppContext as _, Context, Entity, Global, Subscription, Task, WindowId};
 use i18n::t;
-use state::{PlaybackState, Sonora};
+use state::{PlaybackState, YtmHybrid};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
@@ -95,7 +95,7 @@ struct Look {
 }
 
 /// The toolbar of the one window that has one. Lives exactly as long as that
-/// window: `closed` takes it down with the window, so a closed-to-tray Sonora
+/// window: `closed` takes it down with the window, so a closed-to-tray YTM Hybrid
 /// never pushes buttons at a handle that no longer exists.
 struct Installed {
     window: WindowId,
