@@ -21,7 +21,7 @@ New-Item -ItemType Directory -Path $DistDir -Force | Out-Null
 # Build if requested or if binary doesn't exist
 if ($Build -or -not (Test-Path (Join-Path $BuildDir "ytm-hybrid.exe"))) {
     Write-Host "[1/3] Building release executable..." -ForegroundColor Yellow
-    cd $ProjectDir
+    Set-Location $ProjectDir
     cargo build --release
 }
 
@@ -63,68 +63,63 @@ if (Test-Path $LicensePath) {
     YTM Hybrid Windows Installation / Update Script
 #>
 param(
-    [switch]$Uninstall
+    [switch]`$Uninstall
 )
 
-\$ErrorActionPreference = "Stop"
-\$AppName = "ytm-hybrid"
-\$Version = "$Version"
-\$InstallDir = "\$env:LOCALAPPDATA\YTMHybrid"
-\$BinDir = "\$env:LOCALAPPDATA\Programs\YTMHybrid"
-\$DesktopDir = "\$env:UserProfile\Desktop"
+`$ErrorActionPreference = "Stop"
+`$AppName = "ytm-hybrid"
+`$Version = "$Version"
+`$BinDir = "`$env:LOCALAPPDATA\Programs\YTMHybrid"
+`$DesktopDir = "`$env:UserProfile\Desktop"
 
-if (\$Uninstall) {
+if (`$Uninstall) {
     Write-Host "Uninstalling YTM Hybrid..." -ForegroundColor Yellow
     if (Get-Process -Name "ytm-hybrid" -ErrorAction SilentlyContinue) {
         Stop-Process -Name "ytm-hybrid" -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 1
     }
-    Remove-Item -Path \$BinDir -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "\$DesktopDir\YTM Hybrid.lnk" -ErrorAction SilentlyContinue
+    Remove-Item -Path `$BinDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "`$DesktopDir\YTM Hybrid.lnk" -ErrorAction SilentlyContinue
     Write-Host "✓ YTM Hybrid uninstalled successfully." -ForegroundColor Green
     exit
 }
 
-Write-Host "Installing / Updating YTM Hybrid v\$Version..." -ForegroundColor Green
+Write-Host "Installing / Updating YTM Hybrid v`$Version..." -ForegroundColor Green
 
-# Stop running instance to avoid file locks
 if (Get-Process -Name "ytm-hybrid" -ErrorAction SilentlyContinue) {
     Write-Host "Stopping running ytm-hybrid process..." -ForegroundColor Yellow
     Stop-Process -Name "ytm-hybrid" -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 1
 }
 
-New-Item -ItemType Directory -Path \$BinDir -Force | Out-Null
+New-Item -ItemType Directory -Path `$BinDir -Force | Out-Null
 
-# Clean overwrite binary & assets
-Write-Host "Copying files to \$BinDir..." -ForegroundColor Yellow
-Remove-Item -Path "\$BinDir\ytm-hybrid.exe" -Force -ErrorAction SilentlyContinue
-Copy-Item ".\ytm-hybrid.exe" -Destination "\$BinDir\ytm-hybrid.exe" -Force
+Write-Host "Copying files to `$BinDir..." -ForegroundColor Yellow
+Remove-Item -Path "`$BinDir\ytm-hybrid.exe" -Force -ErrorAction SilentlyContinue
+Copy-Item ".\ytm-hybrid.exe" -Destination "`$BinDir\ytm-hybrid.exe" -Force
 
 if (Test-Path ".\ytm-hybrid.png") {
-    Copy-Item ".\ytm-hybrid.png" -Destination "\$BinDir\ytm-hybrid.png" -Force
+    Copy-Item ".\ytm-hybrid.png" -Destination "`$BinDir\ytm-hybrid.png" -Force
 }
 
-# Create Desktop Shortcut
 Write-Host "Creating desktop shortcut..." -ForegroundColor Yellow
-\$WScriptShell = New-Object -ComObject WScript.Shell
-\$Shortcut = \$WScriptShell.CreateShortcut("\$DesktopDir\YTM Hybrid.lnk")
-\$Shortcut.TargetPath = "\$BinDir\ytm-hybrid.exe"
-if (Test-Path "\$BinDir\ytm-hybrid.png") {
-    \$Shortcut.IconLocation = "\$BinDir\ytm-hybrid.png"
+`$WScriptShell = New-Object -ComObject WScript.Shell
+`$Shortcut = `$WScriptShell.CreateShortcut("`$DesktopDir\YTM Hybrid.lnk")
+`$Shortcut.TargetPath = "`$BinDir\ytm-hybrid.exe"
+if (Test-Path "`$BinDir\ytm-hybrid.png") {
+    `$Shortcut.IconLocation = "`$BinDir\ytm-hybrid.png"
 }
-\$Shortcut.Save()
+`$Shortcut.Save()
 
-# Add to User PATH if not present
-\$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if (\$UserPath -notlike "*\$BinDir*") {
-    Write-Host "Adding \$BinDir to user PATH..." -ForegroundColor Yellow
-    [Environment]::SetEnvironmentVariable("Path", "\$UserPath;\$BinDir", "User")
-    \$env:Path += ";\$BinDir"
+`$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if (`$UserPath -notlike "*`$BinDir*") {
+    Write-Host "Adding `$BinDir to user PATH..." -ForegroundColor Yellow
+    [Environment]::SetEnvironmentVariable("Path", "`$UserPath;`$BinDir", "User")
+    `$env:Path += ";`$BinDir"
 }
 
 Write-Host ""
-Write-Host "✓ Installation / Update to v\$Version complete!" -ForegroundColor Green
+Write-Host "✓ Installation / Update to v`$Version complete!" -ForegroundColor Green
 Write-Host "You can launch YTM Hybrid from your Desktop or by typing 'ytm-hybrid' in terminal." -ForegroundColor Cyan
 "@ | Set-Content -Path (Join-Path $ZipDist "install.ps1") -Encoding UTF8
 
@@ -162,9 +157,32 @@ Write-Host "Created: $ZipPath" -ForegroundColor Green
 # ============================================================================
 Write-Host "[3/3] Creating MSIX package..." -ForegroundColor Yellow
 
-$ManifestPath = Join-Path $ProjectDir "Package.appxmanifest"
+# Search directly for makeappx.exe across all installed Windows SDK versions
+$MakeAppxItem = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" -ErrorAction SilentlyContinue |
+                Sort-Object { [version]($_.Directory.Parent.Name) } -Descending |
+                Select-Object -First 1
 
-if (-not (Test-Path $ManifestPath)) {
+if (-not $MakeAppxItem) {
+    $FoundCmd = Get-Command "makeappx.exe" -ErrorAction SilentlyContinue
+    if ($FoundCmd) {
+        $MakeAppxItem = Get-Item $FoundCmd.Source
+    }
+}
+
+if ($MakeAppxItem) {
+    $SdkBinDir = $MakeAppxItem.DirectoryName
+    Write-Host "Found MakeAppx at: $($MakeAppxItem.FullName)" -ForegroundColor Green
+
+    $MsixStaging = Join-Path $DistDir "msix-staging"
+    Remove-Item -Path $MsixStaging -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $MsixStaging -Force | Out-Null
+
+    Copy-Item $BinaryPath -Destination $MsixStaging
+    if (Test-Path $IconPath) {
+        Copy-Item $IconPath -Destination (Join-Path $MsixStaging "ytm-hybrid.png")
+    }
+
+    $ManifestOut = Join-Path $MsixStaging "AppxManifest.xml"
 @"
 <?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -178,27 +196,27 @@ if (-not (Test-Path $ManifestPath)) {
   <Properties>
     <DisplayName>YTM Hybrid</DisplayName>
     <PublisherDisplayName>Egehan Simarik</PublisherDisplayName>
-    <Logo>assets\linux\icons\hicolor\256x256\apps\ytm-hybrid.png</Logo>
+    <Logo>ytm-hybrid.png</Logo>
   </Properties>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Desktop"
                         MinVersion="10.0.17763.0"
-                        MaxVersionTested="10.0.22621.0" />
+                        MaxVersionTested="10.0.26100.0" />
   </Dependencies>
   <Resources>
     <Resource Language="en-us" />
   </Resources>
   <Applications>
     <Application Id="YTMHybrid"
-                 Executable="$([io.path]::GetFileName($BinaryPath))"
+                 Executable="ytm-hybrid.exe"
                  EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
           DisplayName="YTM Hybrid"
-          Square150x150Logo="assets\linux\icons\hicolor\256x256\apps\ytm-hybrid.png"
-          Square44x44Logo="assets\linux\icons\hicolor\256x256\apps\ytm-hybrid.png"
+          Square150x150Logo="ytm-hybrid.png"
+          Square44x44Logo="ytm-hybrid.png"
           Description="YouTube Music Client"
           BackgroundColor="transparent">
-        <uap:DefaultTile Wide310x150Logo="assets\linux\icons\hicolor\256x256\apps\ytm-hybrid.png" />
+        <uap:DefaultTile Wide310x150Logo="ytm-hybrid.png" />
       </uap:VisualElements>
     </Application>
   </Applications>
@@ -206,28 +224,30 @@ if (-not (Test-Path $ManifestPath)) {
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>
 </Package>
-"@ | Set-Content -Path $ManifestPath -Encoding UTF8
-    Write-Host "MSIX manifest created at $ManifestPath" -ForegroundColor Green
-}
+"@ | Set-Content -Path $ManifestOut -Encoding UTF8
 
-# Find makeappx.exe automatically on Windows SDK paths or system PATH
-$MakeAppxPath = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\makeappx.exe"
-if (-not (Test-Path $MakeAppxPath)) {
-    $FoundCmd = Get-Command "makeappx.exe" -ErrorAction SilentlyContinue
-    if ($FoundCmd) {
-        $MakeAppxPath = $FoundCmd.Source
-    }
-}
-
-if ($MakeAppxPath -and (Test-Path $MakeAppxPath)) {
     $MsixOutputPath = Join-Path $DistDir "ytm-hybrid-v$Version-windows-x64.msix"
     Remove-Item -Path $MsixOutputPath -Force -ErrorAction SilentlyContinue
 
     Write-Host "Packing MSIX using MakeAppx..." -ForegroundColor Yellow
-    & $MakeAppxPath pack /d $ZipDist /p $MsixOutputPath /v
+    & $MakeAppxItem.FullName pack /d $MsixStaging /p $MsixOutputPath /o /v
+
+    # Sign MSIX with a self-signed certificate matching Publisher="CN=Egehan Simarik"
+    $SignToolPath = Join-Path $SdkBinDir "signtool.exe"
+    if (Test-Path $SignToolPath) {
+        Write-Host "Signing MSIX package..." -ForegroundColor Yellow
+        $Cert = New-SelfSignedCertificate -Type Custom -Subject "CN=Egehan Simarik" -KeyUsage DigitalSignature -FriendlyName "YTM Hybrid Dev Cert" -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+        $PfxPath = Join-Path $env:TEMP "ytm-hybrid-temp.pfx"
+        $PfxPass = ConvertTo-SecureString -String "ytmhybrid" -Force -AsPlainText
+        Export-PfxCertificate -Cert $Cert -FilePath $PfxPath -Password $PfxPass | Out-Null
+        & $SignToolPath sign /fd SHA256 /a /f $PfxPath /p "ytmhybrid" $MsixOutputPath
+        Remove-Item -Path $PfxPath -Force -ErrorAction SilentlyContinue
+    }
+
+    Remove-Item -Path $MsixStaging -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "Created MSIX: $MsixOutputPath" -ForegroundColor Green
 } else {
-    Write-Host "WARNING: makeappx.exe not found. Skipping automated MSIX packaging (Requires Windows SDK)." -ForegroundColor Yellow
+    Write-Host "WARNING: makeappx.exe not found in any Windows SDK directory." -ForegroundColor Yellow
 }
 
 Write-Host ""
