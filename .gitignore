@@ -44,3 +44,4 @@ venv/
 # --- OS / System Files ---
 .DS_Store
 Thumbs.dbdist/
+dist/

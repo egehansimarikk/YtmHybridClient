@@ -116,6 +116,19 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Add Windows SDK to PATH
+        shell: pwsh
+        run: |
+          $sdkBin = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64" -Directory -ErrorAction SilentlyContinue |
+                    Sort-Object Name -Descending |
+                    Select-Object -First 1
+          if ($sdkBin) {
+            echo "Windows SDK bulundu: $($sdkBin.FullName)"
+            "$($sdkBin.FullName)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          } else {
+            Write-Warning "Windows SDK x64 bin dizini bulunamadı!"
+          }
+
       - name: Run Windows Packaging Script
         shell: pwsh
         run: |
@@ -274,12 +287,12 @@ jobs:
           - **MSIX Package**: `ytm-hybrid-v0.4.2-windows-x64.msix`
 
           ### Linux
-          - **Debian / Ubuntu / Mint (.deb)**: `ytm-hybrid_0.4.2_amd64.deb`
+          - **Debian / Ubuntu / Mint (.deb)**: `ytm-hybrid_0.4.2-1_amd64.deb`
           - **Generic Tarball (.tar.gz)**: `ytm-hybrid-v0.4.2-linux-x64.tar.gz` (Includes automated `install.sh` script)
           - **AppImage**: `YTM_Hybrid-v0.4.2-x86_64.AppImage`
 
           ### macOS
-          - **Disk Image (.dmg)**: `YTM_Hybrid-v0.4.2-x64.dmg`
+          - **Disk Image (.dmg)**: `YTM-Hybrid-0.4.2-macOS.dmg`
 
           ---
 
