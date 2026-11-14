@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 APP_NAME="ytm-hybrid"
-VERSION="0.2.0"
+VERSION="0.4.2"
 MAINTAINER="Egehan Şımarık <egehan_smrk@github.com>"
 COPYRIGHT="2026, Egehan Şımarık"
 DESCRIPTION="Native YouTube Music Desktop Client built with Rust & GPUI."
@@ -56,9 +56,9 @@ fi
 echo "  Found binary: $BUILD_DIR/$BINARY_NAME"
 
 # ============================================================================
-# 2. Portable .tar.gz Archive (Linux)
+# 2. Portable .tar.gz Archive (Linux) with Automated Installer
 # ============================================================================
-echo "[2/5] Creating portable .tar.gz archive..."
+echo "[2/5] Creating portable .tar.gz archive with automated installer..."
 
 TAR_DIST="$DIST_DIR/ytm-hybrid-linux-x64"
 rm -rf "$TAR_DIST"
@@ -68,10 +68,101 @@ mkdir -p "$TAR_DIST"
 cp "$BUILD_DIR/$BINARY_NAME" "$TAR_DIST/"
 
 # Copy icon
-cp "$PROJECT_DIR/assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png" "$TAR_DIST/ytm-hybrid.png"
+ICON_SRC="$PROJECT_DIR/assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png"
+if [ -f "$ICON_SRC" ]; then
+    cp "$ICON_SRC" "$TAR_DIST/ytm-hybrid.png"
+fi
 
 # Copy LICENSE
-cp "$PROJECT_DIR/LICENSE" "$TAR_DIST/"
+if [ -f "$PROJECT_DIR/LICENSE" ]; then
+    cp "$PROJECT_DIR/LICENSE" "$TAR_DIST/"
+fi
+
+# Embed the intelligent install.sh script inside the tar.gz bundle
+cat > "$TAR_DIST/install.sh" << 'INSTALL_EOF'
+#!/bin/bash
+# YTM Hybrid Linux Installation & Update Script
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_NAME="ytm-hybrid"
+VERSION="0.4.2"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+BIN_DIR="$HOME/.local/bin"
+ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+DESKTOP_DIR="$HOME/.local/share/applications"
+
+if [ -f "$SCRIPT_DIR/$APP_NAME" ]; then
+    BINARY_SRC="$SCRIPT_DIR/$APP_NAME"
+else
+    echo -e "${RED}Error: $APP_NAME binary not found${NC}"
+    exit 1
+fi
+
+if [ -f "$SCRIPT_DIR/$APP_NAME.png" ]; then
+    ICON_SRC="$SCRIPT_DIR/$APP_NAME.png"
+else
+    echo -e "${RED}Error: $APP_NAME.png icon not found${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}Installing / Updating YTM Hybrid v${VERSION}...${NC}"
+
+# Stop running instances to prevent file locks / text file busy errors
+if pgrep -x "$APP_NAME" > /dev/null; then
+    echo "Stopping running $APP_NAME process..."
+    pkill -x "$APP_NAME" || true
+    sleep 1
+fi
+
+mkdir -p "$BIN_DIR"
+mkdir -p "$ICON_DIR"
+mkdir -p "$DESKTOP_DIR"
+
+# Clean overwrite binary and icon
+echo "Installing binary and icon..."
+rm -f "$BIN_DIR/$APP_NAME"
+cp "$BINARY_SRC" "$BIN_DIR/$APP_NAME"
+chmod +x "$BIN_DIR/$APP_NAME"
+
+rm -f "$ICON_DIR/$APP_NAME.png"
+cp "$ICON_SRC" "$ICON_DIR/$APP_NAME.png"
+
+# Create desktop entry
+cat > "$DESKTOP_DIR/$APP_NAME.desktop" << 'DESKTOP_EOF'
+[Desktop Entry]
+Type=Application
+Name=YTM Hybrid
+GenericName=Music Player
+Comment=YouTube Music streaming client, built with Rust and GPUI
+Icon=ytm-hybrid
+Exec=ytm-hybrid %U
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;youtube;audio;player;youtube music;
+MimeType=x-scheme-handler/youtube;audio/mpeg;audio/flac;audio/mp4;audio/aac;audio/ogg;audio/opus;audio/x-wav;audio/x-aiff;audio/webm;audio/x-matroska;audio/x-wavpack;audio/x-ape;
+StartupWMClass=ytm-hybrid
+StartupNotify=true
+DESKTOP_EOF
+
+if command -v update-desktop-database &> /dev/null; then
+    update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+fi
+
+if command -v gtk-update-icon-cache &> /dev/null; then
+    gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+fi
+
+echo -e "${GREEN}✓ Installation / Update to v${VERSION} complete!${NC}"
+echo "You can launch YTM Hybrid from your application menu or by typing 'ytm-hybrid' in terminal."
+INSTALL_EOF
+
+chmod +x "$TAR_DIST/install.sh"
 
 # Create README
 cat > "$TAR_DIST/README.md" << EOF
@@ -81,17 +172,11 @@ Native YouTube Music Desktop Client built with Rust & GPUI.
 
 ## Installation
 
-### Linux (tar.gz)
+### Linux (Automated Installer)
 \`\`\`bash
 tar -xzf ytm-hybrid-v${VERSION}-linux-x64.tar.gz
 cd ytm-hybrid-linux-x64
-./ytm-hybrid
-\`\`\`
-
-### Debian/Ubuntu
-\`\`\`bash
-sudo dpkg -i ytm-hybrid_${VERSION}_amd64.deb
-sudo apt-get install -f  # Fix dependencies
+./install.sh
 \`\`\`
 
 ## Features
@@ -115,13 +200,11 @@ echo "  Created: dist/ytm-hybrid-v${VERSION}-linux-x64.tar.gz"
 # ============================================================================
 echo "[3/5] Creating .deb package..."
 
-# Check if cargo-deb is installed
 if ! command -v cargo-deb &> /dev/null; then
     echo "  Installing cargo-deb..."
     cargo install cargo-deb --locked
 fi
 
-# Build .deb package
 cd "$PROJECT_DIR"
 cargo deb --no-strip
 echo "  Created: target/debian/ytm-hybrid_${VERSION}_amd64.deb"
@@ -131,7 +214,6 @@ echo "  Created: target/debian/ytm-hybrid_${VERSION}_amd64.deb"
 # ============================================================================
 echo "[4/5] Creating .AppImage package..."
 
-# Check if appimagetool is installed
 if command -v appimagetool &> /dev/null; then
     APP_DIR="$DIST_DIR/AppDir"
     rm -rf "$APP_DIR"
@@ -139,17 +221,12 @@ if command -v appimagetool &> /dev/null; then
     mkdir -p "$APP_DIR/usr/share/applications"
     mkdir -p "$APP_DIR/usr/share/icons/hicolor/256x256/apps"
 
-    # Copy binary
     cp "$BUILD_DIR/ytm-hybrid" "$APP_DIR/usr/bin/ytm-hybrid"
     chmod +x "$APP_DIR/usr/bin/ytm-hybrid"
 
-    # Copy icon
     cp "$PROJECT_DIR/assets/linux/icons/hicolor/256x256/apps/ytm-hybrid.png" "$APP_DIR/usr/share/icons/hicolor/256x256/apps/ytm-hybrid.png"
-
-    # Copy desktop file
     cp "$PROJECT_DIR/assets/linux/ytm-hybrid.desktop" "$APP_DIR/usr/share/applications/ytm-hybrid.desktop"
 
-    # Create AppRun script
     cat > "$APP_DIR/AppRun" << 'EOF'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
@@ -157,13 +234,11 @@ exec "$HERE/usr/bin/ytm-hybrid" "$@"
 EOF
     chmod +x "$APP_DIR/AppRun"
 
-    # Generate AppImage using appimagetool
     APPIMAGE_OUT="$DIST_DIR/YTM_Hybrid-v${VERSION}-x86_64.AppImage"
     appimagetool --compact --no-appstream "$APP_DIR" "$APPIMAGE_OUT"
     echo "  Created: $APPIMAGE_OUT"
 else
-    echo "  Warning: appimagetool not found (install with: cargo install appimagetool)"
-    echo "  Skipping AppImage generation."
+    echo "  Warning: appimagetool not found. Skipping AppImage generation."
 fi
 
 # ============================================================================
@@ -171,29 +246,18 @@ fi
 # ============================================================================
 echo "[5/5] Creating .dmg installer..."
 
-# Check if we're on macOS
 if [ "$(uname)" = "Darwin" ]; then
-    # Build macOS bundle
     cd "$PROJECT_DIR"
 
-    # Install cargo-bundle if not available
     if ! command -v cargo-bundle &> /dev/null; then
         echo "  Installing cargo-bundle..."
         cargo install cargo-bundle --locked
     fi
 
-    # Build with bundling
     cargo bundle --release
 
-    # Create DMG using create-dmg
     if command -v create-dmg &> /dev/null; then
         DMG_OUT="$DIST_DIR/YTM_Hybrid-v${VERSION}-x64.dmg"
-
-        # Create background image if it doesn't exist
-        if [ ! -f "$PROJECT_DIR/assets/macos/background.png" ]; then
-            echo "  Warning: No background image found at assets/macos/background.png"
-        fi
-
         create-dmg \
             --volname "YTM Hybrid ${VERSION}" \
             --window-pos 200 120 \
@@ -206,15 +270,10 @@ if [ "$(uname)" = "Darwin" ]; then
 
         echo "  Created: $DMG_OUT"
     else
-        echo "  Warning: create-dmg not found (install with: brew install create-dmg)"
-        echo "  You can manually create a DMG from the bundled app."
+        echo "  Warning: create-dmg not found."
     fi
 else
     echo "  Note: macOS packaging requires a Mac build environment."
-    echo "  To create .dmg on macOS:"
-    echo "    brew install create-dmg"
-    echo "    cargo bundle --release"
-    echo "    create-dmg dist/YTM_Hybrid*.app dist/YTM_Hybrid-v${VERSION}-x64.dmg"
 fi
 
 echo ""

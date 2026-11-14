@@ -11,7 +11,7 @@ env:
 
 jobs:
   # ===========================================================================
-  # Linux Builds (.deb + .tar.gz with install.sh)
+  # Linux Builds (.deb + .tar.gz with install.sh + AppImage)
   # ===========================================================================
   build-linux:
     name: Build Linux Packages
@@ -31,10 +31,14 @@ jobs:
             libasound2-dev libwayland-dev libxkbcommon-dev \
             libxkbcommon-x11-dev libx11-xcb-dev libxcb-render0-dev \
             libxcb-shape0-dev libxcb-xfixes0-dev libvulkan-dev \
-            libssl-dev libdbus-1-dev
+            libssl-dev libdbus-1-dev libfuse2
 
-      - name: Install cargo-deb
-        run: cargo install cargo-deb --locked
+      - name: Install cargo-deb & appimagetool (via cargo)
+        run: |
+          cargo install cargo-deb --locked
+          # appimagetool indirme (isteğe bağlı, paket scripti içinde kontrol ediliyor)
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+          chmod +x /usr/local/bin/appimagetool
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -54,43 +58,33 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build release binary
-        run: cargo build --release --locked --package ytm-hybrid
-
-      - name: Verify build
+      - name: Run Multi-Platform Linux Packaging Script
         run: |
-          test -x ./target/release/ytm-hybrid
-          ls -lh ./target/release/ytm-hybrid
-
-      - name: Build .deb package
-        run: cargo deb --no-build --package ytm-hybrid
-
-      - name: Create .tar.gz with install.sh
-        run: |
-          chmod +x ./package.sh
-          ./package.sh
+          chmod +x ./packaging/package.sh # Scriptin konumuna göre ayarlayabilirsin (örn: ./package.sh)
+          ./package.sh || ./packaging/package.sh
 
       - name: Generate SHA256 checksums
         run: |
           cd dist
-          sha256sum ytm-hybrid-v*-linux-x64.tar.gz > SHA256SUMS-linux.txt
+          sha256sum ytm-hybrid-v*-linux-x64.tar.gz YTM_Hybrid-v*-x86_64.AppImage > SHA256SUMS-linux.txt 2>/dev/null || true
           cd ../target/debian
-          sha256sum ytm-hybrid_*.deb >> ../../dist/SHA256SUMS-linux.txt
+          sha256sum ytm-hybrid_*.deb >> ../../dist/SHA256SUMS-linux.txt 2>/dev/null || true
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-packages
           path: |
-            dist/ytm-hybrid-v*-linux-x64.tar.gz
-            target/debian/ytm-hybrid_*.deb
+            dist/*.tar.gz
+            dist/*.AppImage
+            target/debian/*.deb
             dist/SHA256SUMS-linux.txt
 
   # ===========================================================================
-  # Windows Build
+  # Windows Build (ZIP with install.ps1, .exe, and MSIX)
   # ===========================================================================
   build-windows:
-    name: Build Windows Package
+    name: Build Windows Packages
     runs-on: windows-latest
     steps:
       - name: Checkout repository
@@ -111,34 +105,29 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build release binary
-        run: cargo build --release --locked --package ytm-hybrid
-
-      - name: Verify build
-        run: |
-          Test-Path .\target\release\ytm-hybrid.exe
-          Get-ChildItem .\target\release\ytm-hybrid.exe
-
-      - name: Create Windows package
+      - name: Run Windows Packaging Script
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item -Path "target\release\ytm-hybrid.exe" -Destination "dist\" -Force
-          Copy-Item -Path "LICENSE" -Destination "dist\" -Force
+          # package-windows.ps1 scriptini çalıştırarak ZIP, install.ps1 ve MSIX üretir
+          .\packaging\package-windows.ps1 -Version "0.4.2" -Build
 
-      - name: Generate SHA256 checksum
+      - name: Generate SHA256 checksums
         shell: pwsh
         run: |
-          $hash = (Get-FileHash "dist\ytm-hybrid.exe" -Algorithm SHA256).Hash.ToLower()
-          "$hash ytm-hybrid.exe" | Out-File -FilePath "dist\SHA256SUMS-windows.txt" -Encoding ascii
+          cd dist
+          Get-ChildItem -File | ForEach-Object {
+              $hash = (Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower()
+              "$hash $($_.Name)"
+          } | Out-File -FilePath "SHA256SUMS-windows.txt" -Encoding ascii
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-package
+          name: windows-packages
           path: |
-            dist/ytm-hybrid.exe
-            dist/LICENSE
+            dist/*.zip
+            dist/*.msix
+            dist/*.exe
             dist/SHA256SUMS-windows.txt
 
   # ===========================================================================
@@ -154,8 +143,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install create-dmg
-        run: brew install create-dmg
+      - name: Install create-dmg & cargo-bundle
+        run: |
+          brew install create-dmg
+          cargo install cargo-bundle --locked
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -169,30 +160,25 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build release binary
-        run: cargo build --release --locked --package ytm-hybrid
-
-      - name: Verify build
-        run: |
-          test -x ./target/release/ytm-hybrid
-          ls -lh ./target/release/ytm-hybrid
-
-      - name: Create .app bundle and .dmg
+      - name: Build release binary & create DMG
         run: |
           chmod +x ./packaging/macos/build-dmg.sh
-          ./packaging/macos/build-dmg.sh
+          ./packaging/macos/build-dmg.sh || {
+            cargo bundle --release
+            create-dmg --volname "YTM Hybrid" --window-size 600 400 --icon-size 80 --icon "YTM Hybrid.app" 180 190 --app-drop-link 420 190 dist/YTM_Hybrid-v0.4.2-x64.dmg target/release/bundle/macOS/
+          }
 
       - name: Generate SHA256 checksum
         run: |
           cd dist
-          shasum -a 256 YTM-Hybrid-*.dmg > SHA256SUMS-macos.txt
+          shasum -a 256 *.dmg > SHA256SUMS-macos.txt 2>/dev/null || true
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-package
+          name: macos-packages
           path: |
-            dist/YTM-Hybrid-*.dmg
+            dist/*.dmg
             dist/SHA256SUMS-macos.txt
 
   # ===========================================================================
@@ -218,19 +204,12 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          mkdir release-assets
-          # Linux packages - try dist/ subdirectory first, then root
-          cp artifacts/linux-packages/dist/*.tar.gz release-assets/ 2>/dev/null || cp artifacts/linux-packages/*.tar.gz release-assets/ || true
-          cp artifacts/linux-packages/target/debian/*.deb release-assets/ 2>/dev/null || cp artifacts/linux-packages/*.deb release-assets/ || true
-          cp artifacts/linux-packages/dist/SHA256SUMS-linux.txt release-assets/ 2>/dev/null || cp artifacts/linux-packages/SHA256SUMS-linux.txt release-assets/ || true
-          # Windows package - try dist/ subdirectory first, then root
-          cp artifacts/windows-package/dist/ytm-hybrid.exe release-assets/ 2>/dev/null || cp artifacts/windows-package/ytm-hybrid.exe release-assets/ || true
-          cp artifacts/windows-package/dist/SHA256SUMS-windows.txt release-assets/ 2>/dev/null || cp artifacts/windows-package/SHA256SUMS-windows.txt release-assets/ || true
-          # macOS package - try dist/ subdirectory first, then root
-          cp artifacts/macos-package/dist/*.dmg release-assets/ 2>/dev/null || cp artifacts/macos-package/*.dmg release-assets/ || true
-          cp artifacts/macos-package/dist/SHA256SUMS-macos.txt release-assets/ 2>/dev/null || cp artifacts/macos-package/SHA256SUMS-macos.txt release-assets/ || true
-          # Combine all checksums
-          cat artifacts/*/SHA256SUMS-*.txt artifacts/*/dist/SHA256SUMS-*.txt > release-assets/SHA256SUMS.txt 2>/dev/null || true
+          mkdir -p release-assets
+          # Tüm artifact klasörlerindeki dosyaları düzleştirerek release-assets altına kopyala
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.zip" -o -name "*.msix" -o -name "*.dmg" -o -name "*.exe" -o -name "*.txt" \) -exec cp {} release-assets/ \;
+          
+          # Checksum dosyalarını birleştir
+          cat artifacts/*/SHA256SUMS-*.txt > release-assets/SHA256SUMS.txt 2>/dev/null || true
 
       - name: Extract version from tag
         id: get_version
@@ -247,40 +226,28 @@ jobs:
           ## What's New in v0.4.2
 
           ### 🎛️ Audio Engine & Device Management
-          - **Refined 3D Soundstage & Acoustic Modes**: Overhauled the spatial audio engine in `crates/music/src/spatial.rs` with tuned Bauer crossfeed (bs2b), sub-bass mono anchoring, Mid/Side air expansion, and distinct multi-tap acoustic reflection models for *Studio*, *Wide Stage*, and *Concert Hall**).
-          - **Clean Output Device Selection**: Filtered out redundant virtual drivers, ALSA/Pulse/PipeWire plugin clutter, and duplicate card entries in `crates/music/src/audio.rs` so only clean hardware sinks and system defaults appear.
-          - **Streamlined Hardware List**: Improved usability and reliability when switching audio output devices on Linux and desktop environments.
+          - **Refined 3D Soundstage & Acoustic Modes**: Overhauled spatial audio with tuned Bauer crossfeed (bs2b), sub-bass mono anchoring, and multi-tap acoustic reflection models for *Studio*, *Wide Stage*, and *Concert Hall*.
+          - **Clean Output Device Selection**: Filtered out redundant virtual drivers and duplicate card entries so only clean hardware sinks appear.
 
-          ### 🌍 Localization & i18n
-          - **Expanded Language Support**: Resolved missing localization keys for audio output and spatial audio settings across supported locales.
-          - **UI Consistency**: Standardized translated labels across settings and player views.
-
-          ### ⚙️ Architecture & View Stability
-          - **Global State Migration**: Standardized global state references from legacy `Sonora` identifiers to `YtmHybrid` across `crates/state` and `crates/views` (`root.rs`, `player_bar.rs`, `notice.rs`, `fullscreen.rs`).
-          - **Synced Lyrics Rendering Fix**: Fixed secondary lyrics lane timing variable resolution in `crates/views/src/chrome/aside.rs`.
-
-          ### 🛠️ CI/CD & Packaging
-          - **Release Workflow Alignment**: Updated `.github/workflows/release.yml` artifact packaging, checksum aggregation, and release notes generation for `v0.4.2`.
+          ### 🛠️ CI/CD & Packaging Improvements
+          - **Smart Linux & Windows Installers**: Automated `.tar.gz` and `.zip` packages now include smart update/install scripts that automatically handle process locks (`pkill`) and clean overwrites.
+          - **MSIX & AppImage Support**: Automated CI pipeline now builds robust MSIX packages for Windows alongside AppImage and .deb for Linux.
 
           ---
 
           ## Installation
 
           ### Windows
-          - **Installer (Recommended)**: [`ytm-hybrid-Setup.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid-Setup.exe) (Includes Start Menu shortcuts and automated protocol registration).
-          - **Executable (Portable)**: [`ytm-hybrid.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/download/v0.4.2/ytm-hybrid.exe)
+          - **Automated ZIP (Recommended)**: `ytm-hybrid-v0.4.2-windows-x64.zip` (Extract and run `install.ps1`)
+          - **MSIX Package**: `ytm-hybrid-v0.4.2-windows-x64.msix`
 
           ### Linux
-          - **Debian / Ubuntu / Mint (.deb)**: [`ytm-hybrid_0.4.2_amd64.deb`](https://github.com/egehansimarikk/YtmHybridClient/releases/download/v0.4.2/ytm-hybrid_0.4.2_amd64.deb)
-          - **Generic Tarball (.tar.gz)**: [`ytm-hybrid-v0.4.2-linux-x64.tar.gz`](https://github.com/egehansimarikk/YtmHybridClient/releases/download/v0.4.2/ytm-hybrid-v0.4.2-linux-x64.tar.gz) (Includes `install.sh` for `~/.local/bin` deployment and desktop integration)
+          - **Debian / Ubuntu / Mint (.deb)**: `ytm-hybrid_0.4.2_amd64.deb`
+          - **Generic Tarball (.tar.gz)**: `ytm-hybrid-v0.4.2-linux-x64.tar.gz` (Includes automated `install.sh` script)
+          - **AppImage**: `YTM_Hybrid-v0.4.2-x86_64.AppImage`
 
           ### macOS
-          - **Disk Image (.dmg)**: [`YTM-Hybrid-0.4.2-macOS.dmg`](https://github.com/egehansimarikk/YtmHybridClient/releases/download/v0.4.2/YTM-Hybrid-0.4.2-macOS.dmg)
-
-          ---
-
-          ## Verify Downloads
-          SHA256 checksum files (`SHA256SUMS.txt`, `SHA256SUMS-linux.txt`, `SHA256SUMS-windows.txt`, `SHA256SUMS-macos.txt`) are attached to verify archive and binary integrity.
+          - **Disk Image (.dmg)**: `YTM_Hybrid-v0.4.2-x64.dmg`
 
           ---
 

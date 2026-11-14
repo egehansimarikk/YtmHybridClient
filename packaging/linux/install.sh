@@ -6,7 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_NAME="ytm-hybrid"
-VERSION="0.3.0"
+VERSION="0.4.2"
 
 # Colors for output
 RED='\033[0;31m'
@@ -48,7 +48,7 @@ YTM Hybrid Installation Script v${VERSION}
 Usage: $0 [OPTIONS]
 
 OPTIONS:
-    --install       Install YTM Hybrid (default)
+    --install       Install or update YTM Hybrid (default)
     --uninstall     Uninstall YTM Hybrid
     -h, --help      Show this help message
 
@@ -60,10 +60,17 @@ INSTALLATION PATHS:
 EOF
 }
 
-# Function to install
+# Function to install / update
 install_ytm() {
-    echo -e "${GREEN}Installing YTM Hybrid v${VERSION}...${NC}"
+    echo -e "${GREEN}Installing / Updating YTM Hybrid v${VERSION}...${NC}"
     echo ""
+
+    # Stop any running instances to prevent "Text file busy" or file lock errors during updates
+    if pgrep -x "$APP_NAME" > /dev/null; then
+        echo "Stopping running $APP_NAME process to prevent file locks..."
+        pkill -x "$APP_NAME" || true
+        sleep 1
+    fi
 
     # Create directories
     echo "Creating installation directories..."
@@ -71,16 +78,18 @@ install_ytm() {
     mkdir -p "$ICON_DIR"
     mkdir -p "$DESKTOP_DIR"
 
-    # Install binary
+    # Install binary (safely remove old binary first to ensure clean overwrite)
     echo "Installing binary to $BIN_DIR..."
+    rm -f "$BIN_DIR/$APP_NAME"
     cp "$BINARY_SRC" "$BIN_DIR/$APP_NAME"
     chmod +x "$BIN_DIR/$APP_NAME"
 
-    # Install icon
+    # Install icon (overwrite existing)
     echo "Installing icon to $ICON_DIR..."
+    rm -f "$ICON_DIR/$APP_NAME.png"
     cp "$ICON_SRC" "$ICON_DIR/$APP_NAME.png"
 
-    # Create desktop entry
+    # Create / Update desktop entry
     echo "Creating desktop entry..."
     cat > "$DESKTOP_DIR/$APP_NAME.desktop" << 'DESKTOP_EOF'
 [Desktop Entry]
@@ -111,9 +120,9 @@ DESKTOP_EOF
     fi
 
     echo ""
-    echo -e "${GREEN}✓ Installation complete!${NC}"
+    echo -e "${GREEN}✓ Installation / Update to v${VERSION} complete!${NC}"
     echo ""
-    echo "YTM Hybrid has been installed to:"
+    echo "YTM Hybrid has been updated to:"
     echo "  • Binary:  $BIN_DIR/$APP_NAME"
     echo "  • Icon:    $ICON_DIR/$APP_NAME.png"
     echo "  • Desktop: $DESKTOP_DIR/$APP_NAME.desktop"
@@ -137,6 +146,13 @@ DESKTOP_EOF
 uninstall_ytm() {
     echo -e "${YELLOW}Uninstalling YTM Hybrid...${NC}"
     echo ""
+
+    # Stop running instances
+    if pgrep -x "$APP_NAME" > /dev/null; then
+        echo "Stopping running $APP_NAME process..."
+        pkill -x "$APP_NAME" || true
+        sleep 1
+    fi
 
     # Remove binary
     if [ -f "$BIN_DIR/$APP_NAME" ]; then

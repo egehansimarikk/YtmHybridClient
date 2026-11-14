@@ -6,7 +6,7 @@ set -e
 
 APP_NAME="YTM Hybrid"
 BUNDLE_ID="com.egehansimarik.ytm-hybrid"
-VERSION="0.3.0"
+VERSION="0.4.2"
 EXECUTABLE="ytm-hybrid"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
