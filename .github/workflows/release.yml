@@ -59,8 +59,16 @@ jobs:
 
       - name: Run Multi-Platform Linux Packaging Script
         run: |
-          chmod +x ./package.sh || chmod +x ./packaging/package.sh
-          ./package.sh || ./packaging/package.sh
+          if [ -f "./scripts/package.sh" ]; then
+            chmod +x ./scripts/package.sh
+            ./scripts/package.sh
+          elif [ -f "./package.sh" ]; then
+            chmod +x ./package.sh
+            ./package.sh
+          else
+            echo "HATA: package.sh bulunamadı!"
+            exit 1
+          fi
 
       - name: Generate SHA256 checksums
         run: |
@@ -107,10 +115,14 @@ jobs:
       - name: Run Windows Packaging Script
         shell: pwsh
         run: |
-          if (Test-Path ".\package-windows.ps1") {
+          if (Test-Path ".\scripts\package-windows.ps1") {
+              .\scripts\package-windows.ps1 -Version "0.4.2" -Build
+          } elseif (Test-Path ".\package-windows.ps1") {
               .\package-windows.ps1 -Version "0.4.2" -Build
-          } else {
+          } elseif (Test-Path ".\packaging\package-windows.ps1") {
               .\packaging\package-windows.ps1 -Version "0.4.2" -Build
+          } else {
+              throw "package-windows.ps1 bulunamadı!"
           }
 
       - name: Generate SHA256 checksums
@@ -169,6 +181,7 @@ jobs:
             ./packaging/macos/build-dmg.sh
           else
             cargo bundle --release
+            mkdir -p dist
             create-dmg --volname "YTM Hybrid" --window-size 600 400 --icon-size 80 --icon "YTM Hybrid.app" 180 190 --app-drop-link 420 190 dist/YTM_Hybrid-v0.4.2-x64.dmg target/release/bundle/macOS/
           fi
 
@@ -223,7 +236,7 @@ jobs:
 
       - name: Create Release Notes
         run: |
-          cat > RELEASE_NOTES.md << 'EOF'
+          sed 's/^          //' << 'EOF' > RELEASE_NOTES.md
           ## What's New in v0.4.2
 
           ### 🎛️ Audio Engine & Device Management
