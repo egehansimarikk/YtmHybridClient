@@ -1,5 +1,5 @@
 use gpui::{App, Context, Entity, Task};
-use state::{AppSettings, Playback, Queue, Reloaded, Sonora};
+use state::{AppSettings, Playback, Queue, Reloaded, YtmHybrid};
 use ui::{ActiveTheme as _, CoverPalette, Look, Theme, ThemeKind};
 
 /// Drives the theme's tint from the playing track's cover, and keeps the next
@@ -34,7 +34,7 @@ struct Ahead {
 
 impl Adaptive {
     pub fn new(playback: Entity<Playback>, cx: &mut Context<Self>) -> Self {
-        let sonora = Sonora::global(cx);
+        let sonora = YtmHybrid::global(cx);
         let (queue, settings) = (sonora.queue.clone(), sonora.settings.clone());
         cx.observe(&playback, |this, _, cx| this.sync(false, cx))
             .detach();
@@ -153,7 +153,7 @@ impl Adaptive {
         self.worn = Some(kind);
         self.painted = palette;
 
-        let settings = Sonora::global(cx).settings.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
         let (look, overrides) = {
             let settings = settings.read(cx);
             (

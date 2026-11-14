@@ -20,7 +20,7 @@ use music::{Shape, Track};
 use router::{Destination, LibraryTab, navigate};
 use state::{
     Addition, AppSettings, Library, LibraryPart, LibraryState, Origin, Playback, Scan, Shelf,
-    Sonora,
+    YtmHybrid,
 };
 use ui::{
     ActiveTheme as _, Button, Card, Deck, FilterChange, LEADING, Mode, Pinnable, Popovers, Popup,
@@ -217,7 +217,7 @@ impl LibraryView {
         cx: &mut Context<Self>,
     ) -> Self {
         let width = cells::content_width(window, Pixels::ZERO, cx);
-        let settings = Sonora::global(cx).settings.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
         let stored = |section: Section, cx: &App| {
             let settings = settings.read(cx);
             (
@@ -492,7 +492,7 @@ impl LibraryView {
     /// first import, which is the longest one there is.
     fn unconfigured(&self, cx: &App) -> bool {
         self.shelf.local()
-            && Sonora::global(cx).session.read(cx).local_paths().is_empty()
+            && YtmHybrid::global(cx).session.read(cx).local_paths().is_empty()
             && Scan::global(cx).read(cx).progress().is_none()
     }
 
@@ -724,7 +724,7 @@ impl LibraryView {
 
     fn drop_artists(&mut self, cx: &mut Context<Self>) {
         // Nothing to unfollow where following is not a thing the provider has.
-        if !Sonora::global(cx)
+        if !YtmHybrid::global(cx)
             .session
             .read(cx)
             .capabilities_of(self.shelf)

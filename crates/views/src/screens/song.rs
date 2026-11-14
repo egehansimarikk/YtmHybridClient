@@ -6,7 +6,7 @@ use gpui::{
 use i18n::t;
 use music::{Credit, Track};
 use router::{Destination, Link as _};
-use state::{Playback, SongDetail, Sonora};
+use state::{Playback, SongDetail, YtmHybrid};
 use ui::{
     ActiveTheme as _, Avatar, Button, Fact, InfoCard, Initials, Popup, Scrollbar, Scroller,
     Skeleton, Text, clock,
@@ -75,7 +75,7 @@ impl SongView {
         })
         .detach();
         cx.observe(&playback, |_, _, cx| cx.notify()).detach();
-        let library = Sonora::global(cx).library.clone();
+        let library = YtmHybrid::global(cx).library.clone();
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
         let me = cx.entity_id();
         let playlist_scrollbar = cx.new(|_| Scrollbar::inset().watching(me));

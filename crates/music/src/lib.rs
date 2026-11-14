@@ -1,9 +1,7 @@
-pub mod apple;
 pub mod artwork;
-mod audio;
+pub mod audio;
 pub mod binimum;
 pub mod credentials;
-pub mod deezer;
 pub mod drm;
 pub mod engine;
 pub mod equalizer;
@@ -23,7 +21,6 @@ pub mod scrobble;
 mod sink;
 pub mod spatial;
 mod spectrum;
-pub mod spotify;
 mod stream;
 pub mod subsonic;
 mod trim;
@@ -42,7 +39,10 @@ use time::format_description::well_known::Iso8601;
 use time::parsing::Parsed;
 use time::{Month, OffsetDateTime};
 
-pub use audio::{Server as SoundServer, failing as output_failing, missing_bridge};
+pub use audio::{
+    OutputDeviceInfo, Server as SoundServer, failing as output_failing, missing_bridge,
+    output_devices, preferred_device, set_preferred_device,
+};
 pub use equalizer::Equalizer;
 pub use models::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, ArtistRef,
@@ -345,6 +345,7 @@ pub struct PlaybackConfig {
     pub position_interval: Duration,
     pub gain: f32,
     pub equalizer: Equalizer,
+    pub spatial: SpatialAudioProcessor,
 }
 
 /// What an engine reports back. `Playing` and `Seeked` mean audio from `at` is reaching the

@@ -6,7 +6,7 @@ use gpui::{
 };
 use i18n::t;
 use music::{AccountChoice, SignIn, SignInPrompt};
-use state::{Session, SessionState, Sonora, Usage};
+use state::{Session, SessionState, YtmHybrid, Usage};
 use ui::ActiveTheme as _;
 use ui::{Button, Checkbox, Input, Modal, TabBar, Text};
 
@@ -50,7 +50,7 @@ pub struct LoginView {
 impl LoginView {
     pub fn new(session: Entity<Session>, cx: &mut Context<Self>) -> Self {
         cx.observe(&session, |_, _, cx| cx.notify()).detach();
-        let usage = Sonora::global(cx).usage.clone();
+        let usage = YtmHybrid::global(cx).usage.clone();
         cx.observe(&usage, |_, _, cx| cx.notify()).detach();
         Self {
             session,
@@ -509,7 +509,7 @@ impl Render for LoginView {
         let orphan = asking && guest.is_none();
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let radius = crate::chrome::window_radius(Sonora::global(cx).settings.read(cx), cx, window);
+        let radius = crate::chrome::window_radius(YtmHybrid::global(cx).settings.read(cx), cx, window);
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         let radius: Option<Pixels> = None;
 

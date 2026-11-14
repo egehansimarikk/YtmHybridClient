@@ -1,6 +1,6 @@
 use gpui::prelude::*;
 use gpui::{Context, Entity, Pixels, Render, StyleRefinement, Window, div, px};
-use state::{AppSettings, Playback, Queue, SideTab, Sonora};
+use state::{AppSettings, Playback, Queue, SideTab, YtmHybrid};
 use ui::{ActiveTheme as _, MIN_CONTENT, Panel, Room, Side};
 
 use crate::chrome::Aside;
@@ -25,7 +25,7 @@ impl SidebarRight {
         playback: Entity<Playback>,
         cx: &mut Context<Self>,
     ) -> Self {
-        let settings = Sonora::global(cx).settings.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
         let width = px(settings.read(cx).sidebar_right_width()).clamp(MIN_WIDTH, MAX_WIDTH);
         let open = settings.read(cx).sidebar_right_open();
         let tab = settings.read(cx).sidebar_right_tab();

@@ -2,7 +2,7 @@ use gpui::prelude::*;
 use gpui::{App, Context, Entity, FocusHandle, Global, Render, Window, div};
 use i18n::t;
 use music::{Album, SavedArtist, Shape, Track};
-use state::{Detail, History, Io, Outcome, Shelf, Sonora, Toasts};
+use state::{Detail, History, Io, Outcome, Shelf, YtmHybrid, Toasts};
 use ui::{Button, Dismiss, FORM_CONTEXT, Modal, Submit};
 
 #[derive(Clone, Copy)]
@@ -85,7 +85,7 @@ impl Confirm {
     /// `Shape::Catalog` shelf the favorites sit over a library that stays put; on a
     /// `Shape::Saved` one the heart is the library itself, and the question stands.
     pub(crate) fn unstarring(id: &str, cx: &App) -> bool {
-        Sonora::global(cx).library.read(cx).shape(Shelf::of(id)) == Shape::Catalog
+        YtmHybrid::global(cx).library.read(cx).shape(Shelf::of(id)) == Shape::Catalog
     }
 
     pub fn ask(kind: Kind, apply: impl FnOnce(&mut App) + 'static, cx: &mut App) {
@@ -110,7 +110,7 @@ impl Confirm {
             .and_then(|track| track.id.as_deref())
             .is_some_and(|id| Self::unstarring(id, cx));
         let apply = move |cx: &mut App| {
-            let library = Sonora::global(cx).library.clone();
+            let library = YtmHybrid::global(cx).library.clone();
             library.update(cx, |library, cx| library.save_tracks(tracks, false, cx));
         };
         match starred {
@@ -158,7 +158,7 @@ impl Confirm {
             .first()
             .is_some_and(|album| Self::unstarring(&album.id, cx));
         let apply = move |cx: &mut App| {
-            let library = Sonora::global(cx).library.clone();
+            let library = YtmHybrid::global(cx).library.clone();
             library.update(cx, |library, cx| {
                 for album in albums {
                     library.toggle_album(album, cx);
@@ -180,7 +180,7 @@ impl Confirm {
             .first()
             .is_some_and(|artist| Self::unstarring(&artist.id, cx));
         let apply = move |cx: &mut App| {
-            let library = Sonora::global(cx).library.clone();
+            let library = YtmHybrid::global(cx).library.clone();
             library.update(cx, |library, cx| {
                 for artist in artists {
                     library.toggle_artist(artist, cx);
@@ -200,7 +200,7 @@ impl Confirm {
         Self::ask(
             Kind::Playlists(ids.len()),
             move |cx| {
-                let library = Sonora::global(cx).library.clone();
+                let library = YtmHybrid::global(cx).library.clone();
                 library.update(cx, |library, cx| {
                     library.remove_playlists_from_library(ids, cx)
                 });
@@ -216,7 +216,7 @@ impl Confirm {
         Self::ask(
             Kind::DeleteTrackFiles(ids.len()),
             move |cx| {
-                let sonora = Sonora::global(cx);
+                let sonora = YtmHybrid::global(cx);
                 let Some(provider) = sonora.session.read(cx).local_client() else {
                     return;
                 };

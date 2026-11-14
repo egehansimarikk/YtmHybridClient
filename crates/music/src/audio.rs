@@ -9,17 +9,196 @@ use rodio::source::SeekError;
 use rodio::{DeviceSinkBuilder, MixerDeviceSink, Source};
 
 use crate::equalizer::{Equalized, Equalizer};
+use crate::spatial::SpatialAudioProcessor;
 use crate::spectrum::{Spectrum, Tap};
 
 pub const RAMP: Duration = Duration::from_millis(25);
 const BUFFER: Duration = Duration::from_millis(50);
 
-/// The device stream every output in the process mixes into, so the sound server sees Sonora as
+/// The device stream every output in the process mixes into, so the sound server sees YTM Hybrid as
 /// one client however many engines are running. It runs at the rate of whatever played last and
 /// closes when the last output on it drops.
 static SHARED: Mutex<Weak<Device>> = Mutex::new(Weak::new());
 /// Whether the last attempt to open a device stream failed, which is what `failing` reports.
 static FAILING: AtomicBool = AtomicBool::new(false);
+/// Locked output device ID chosen by the user. `None` means follow the system default.
+static PREFERRED_DEVICE: Mutex<Option<String>> = Mutex::new(None);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OutputDeviceInfo {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+}
+
+/// Locks audio output to a specific CPAL device ID (or clears the lock with `None`).
+pub fn set_preferred_device(id: Option<String>) {
+    let mut preferred = PREFERRED_DEVICE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    *preferred = id.filter(|s| !s.trim().is_empty());
+}
+
+/// Returns the currently locked output device ID, if any.
+pub fn preferred_device() -> Option<String> {
+    PREFERRED_DEVICE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone()
+}
+
+/// Lists all available output devices on the active audio host.
+/// Filters out ALSA plugin wrappers and deduplicates hardware entries.
+pub fn output_devices() -> Vec<OutputDeviceInfo> {
+    let host = cpal::default_host();
+    let default_id = host.default_output_device().map(|d| ident(&d));
+    let Ok(devices) = host.output_devices() else {
+        return Vec::new();
+    };
+
+    let mut filtered: Vec<OutputDeviceInfo> = devices
+        .filter_map(|device| {
+            let id = ident(&device);
+            if id == "unknown" {
+                return None;
+            }
+            let name = device
+                .description()
+                .map(|desc| desc.name().trim().to_owned())
+                .unwrap_or_else(|_| id.clone());
+
+            if should_filter_device(&name, &id) {
+                return None;
+            }
+
+            let is_default = default_id.as_deref() == Some(id.as_str());
+            Some(OutputDeviceInfo {
+                id,
+                name,
+                is_default,
+            })
+        })
+        .collect();
+
+    // Prefer cleaner ALSA/server device IDs when deduplicating identical display names
+    filtered.sort_by_key(|dev| device_priority(&dev.id));
+
+    let mut seen_names = std::collections::HashSet::new();
+    filtered.retain(|dev| seen_names.insert(dev.name.to_lowercase()));
+
+    filtered
+}
+
+fn device_priority(id: &str) -> u8 {
+    let id_lower = id.to_lowercase();
+    if id_lower == "pipewire" {
+        0
+    } else if id_lower == "pulse" {
+        1
+    } else if id_lower.starts_with("hw:") || id_lower.starts_with("hdmi:") {
+        2
+    } else if id_lower.starts_with("front:") || id_lower.starts_with("sysdefault:") {
+        3
+    } else {
+        4
+    }
+}
+
+/// Filters out ALSA plugin devices, virtual wrappers, and redundant hardware nodes.
+fn should_filter_device(name: &str, id: &str) -> bool {
+    let name_lower = name.to_lowercase();
+    let id_lower = id.to_lowercase();
+
+    // Filter out virtual ALSA server/emulation wrappers (System Default already handles default routing)
+    let blocked_ids = [
+        "default",
+        "null",
+        "jack",
+        "oss",
+        "pulse",
+        "speex",
+        "upmix",
+        "vdownmix",
+    ];
+    if blocked_ids.contains(&id_lower.as_str()) {
+        return true;
+    }
+
+    // Filter out ALSA PCM routing/conversion prefixes in device ID
+    let blocked_id_prefixes = [
+        "default:",
+        "sysdefault:",
+        "plughw:",
+        "plug:",
+        "dmix:",
+        "dsnoop:",
+        "asym:",
+        "shm:",
+        "tee:",
+        "file:",
+        "null:",
+        "surround",
+        "rear:",
+        "center_lfe:",
+        "side:",
+        "iec958:",
+        "spdif:",
+        "lavrate:",
+        "samplerate:",
+        "speexrate:",
+    ];
+    if blocked_id_prefixes
+        .iter()
+        .any(|prefix| id_lower.starts_with(prefix))
+    {
+        return true;
+    }
+
+    // Filter out descriptive plugin/virtual entries by display name
+    let blocked_name_keywords = [
+        "discard all samples",
+        "rate converter",
+        "plugin using",
+        "oss emulation",
+        "open sound system",
+        "jack audio",
+        "default alsa output",
+        "channel upmix",
+        "channel downmix",
+        "rate conversion",
+        "convert to",
+    ];
+    if blocked_name_keywords
+        .iter()
+        .any(|keyword| name_lower.contains(keyword))
+    {
+        return true;
+    }
+
+    // Filter out bare card entries without a specific subdevice (e.g. "HDA NVidia", "HDA Intel PCH")
+    if !name.contains(',')
+        && (id_lower.starts_with("hw:")
+            || id_lower.starts_with("front:")
+            || id_lower.starts_with("hdmi:"))
+    {
+        return true;
+    }
+
+    false
+}
+
+fn select_output_device() -> Result<cpal::Device> {
+    let host = cpal::default_host();
+    if let Some(wanted_id) = preferred_device()
+        && let Ok(mut devices) = host.output_devices()
+        && let Some(locked) = devices.find(|device| ident(device) == wanted_id)
+    {
+        return Ok(locked);
+    }
+
+    host.default_output_device()
+        .context("no audio output device")
+}
 
 /// A desktop sound server, which ALSA reaches only through the plugin its package installs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,12 +224,14 @@ impl Volume {
     }
 }
 
-/// What sits between the queue and the device: the equalizer, then the volume ramp, with the
-/// spectrum tap listening at the end. Every engine builds one and hands it to the output.
+/// What sits between the queue and the device: the spatial processor, then the equalizer,
+/// then the volume ramp, with the spectrum tap listening at the end. Every engine builds one
+/// and hands it to the output.
 pub struct Chain {
     pub volume: Volume,
     pub equalizer: Equalizer,
     pub spectrum: Spectrum,
+    pub spatial: SpatialAudioProcessor,
 }
 
 /// One open stream on an output device, with the mixer the engines' chains play into.
@@ -66,10 +247,9 @@ struct Device {
 }
 
 impl Device {
-    /// The shared stream on the default device, at `rate` when one is given. It opens a new
+    /// The shared stream on the target device, at `rate` when one is given. It opens a new
     /// stream when no output holds a healthy one there at that rate, closing the old stream on
-    /// the same device first. A stream left on a device that is no longer the default stays with
-    /// the outputs still using it until they reopen.
+    /// the same device first.
     fn shared(rate: Option<u32>) -> Result<Arc<Self>> {
         let shared = Self::reach(rate);
         FAILING.store(shared.is_err(), Ordering::Release);
@@ -77,14 +257,13 @@ impl Device {
     }
 
     fn reach(rate: Option<u32>) -> Result<Arc<Self>> {
-        let device = cpal::default_host()
-            .default_output_device()
-            .context("no audio output device")?;
+        let device = select_output_device()?;
         let id = ident(&device);
 
         let mut shared = SHARED.lock().unwrap_or_else(PoisonError::into_inner);
-        let current = shared.upgrade().filter(|open| open.id == id);
-        if let Some(open) = &current
+        let current = shared.upgrade();
+        if let Some(ref open) = current
+            && open.id == id
             && open.live()
             && rate.is_none_or(|rate| open.fits(rate))
         {
@@ -188,8 +367,8 @@ pub struct Output {
 }
 
 impl Output {
-    /// Joins the stream on the default output device at whatever rate it runs and runs every
-    /// sample through the equalizer and then the volume ramp before it reaches the mixer.
+    /// Joins the stream on the target output device at whatever rate it runs and runs every
+    /// sample through the spatial processor, equalizer and then the volume ramp before it reaches the mixer.
     pub fn open(chain: Chain) -> Result<Self> {
         let device = Device::shared(None)?;
         let sink = attach(&chain, &device);
@@ -242,16 +421,15 @@ impl Output {
     }
 
     /// Whether what this output holds can no longer be heard: the stream reported an error,
-    /// another engine reopened it at another rate, or `fit` failed. Every output on the stream
-    /// sees an error. A fresh track recovers through `fit`, a paused one has to be reloaded.
+    /// another engine reopened it at another rate, or `fit` failed.
     pub fn failed(&self) -> bool {
         self.broken || !self.device.live()
     }
 
-    /// Whether the system's default device is no longer the one this output plays on.
+    /// Whether the target device is no longer the one this output plays on.
     pub fn changed(&self) -> bool {
-        cpal::default_host()
-            .default_output_device()
+        select_output_device()
+            .ok()
             .map(|device| ident(&device))
             .is_some_and(|device| device != "unknown" && device != self.device.id)
     }
@@ -465,28 +643,21 @@ impl<I: Source> Source for Trimmed<I> {
     }
 }
 
-/// Whether the system has a default output device to play on. A device can be missing for as
-/// long as it takes a headset to reconnect, so the engines ask again rather than give up.
+/// Whether the system has a usable output device to play on.
 pub fn available() -> bool {
-    cpal::default_host().default_output_device().is_some()
+    select_output_device().is_ok()
 }
 
-/// Whether a stream on the default device opens right now. The stream is the shared one, so it
-/// closes again at once unless an output already plays on it.
+/// Whether a stream on the target device opens right now.
 pub fn openable() -> bool {
     available() && Device::shared(None).is_ok()
 }
 
-/// Whether the last attempt to open the output failed, so whatever plays is not heard. On Linux
-/// ALSA always names a default device, so this rather than `available` is what tells that the
-/// sound cannot get out.
+/// Whether the last attempt to open the output failed, so whatever plays is not heard.
 pub fn failing() -> bool {
     FAILING.load(Ordering::Acquire)
 }
 
-/// The sound server this session runs when ALSA has no plugin routing to it. Sonora then opens
-/// the card the server already holds and plays nothing, which `pipewire-alsa` or
-/// `pulseaudio-alsa` fixes. Only ALSA's configuration is read, no device is opened.
 #[cfg(target_os = "linux")]
 pub fn missing_bridge() -> Option<Server> {
     let server = server()?;
@@ -515,9 +686,13 @@ fn attach(chain: &Chain, device: &Device) -> rodio::Player {
     let tap = chain.spectrum.attach();
     let (sink, source) = rodio::Player::new();
 
-    // BitChord philosophy: 100% clean native passthrough
-    // Audio passes directly from decoder to output without any spatial DSP wrappers
-    let equalized = Equalized::new(source, chain.equalizer.clone());
+    // Prepare spatial processor for the device sample rate
+    let _ = chain.spatial.prepare(device.rate);
+
+    // Audio chain: source -> spatial processing -> equalization -> volume -> output
+    // Spatial processing is applied first to maintain phase coherence before EQ
+    let spatialized = chain.spatial.wrap_source(source);
+    let equalized = Equalized::new(spatialized, chain.equalizer.clone());
 
     device.add(SmoothGain::new(equalized, chain.volume.clone(), applied, RAMP).with_tap(tap));
     sink
@@ -543,8 +718,6 @@ fn at_rate(
         .find_map(|range| range.try_with_sample_rate(rate))
 }
 
-/// The sound server whose socket this session has, PipeWire first since it also answers on the
-/// PulseAudio socket.
 #[cfg(target_os = "linux")]
 fn server() -> Option<Server> {
     let runtime = std::path::PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?);

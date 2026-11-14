@@ -6,7 +6,7 @@ use input::{
     TogglePlayback, ToggleRepeat, ToggleShuffle, ZoomWindow,
 };
 use router::Destination;
-use state::{AppSettings, Shelf, Sonora};
+use state::{AppSettings, Shelf, YtmHybrid};
 use ui::{ActiveTheme as _, Copy, Cut, Look, Paste, SelectAll, Theme};
 
 /// How far one font size shortcut moves the size, the same step as the buttons in Settings.
@@ -24,7 +24,7 @@ pub fn register(lingers: bool, cx: &mut App) {
         if !cx.windows().is_empty() {
             return;
         }
-        let close_to_tray = Sonora::global(cx).settings.read(cx).close_to_tray();
+        let close_to_tray = YtmHybrid::global(cx).settings.read(cx).close_to_tray();
         match lingers && close_to_tray {
             true => crate::dock::show(false),
             false => cx.quit(),
@@ -33,14 +33,14 @@ pub fn register(lingers: bool, cx: &mut App) {
     .detach();
 
     cx.on_action(|_: &SignOut, cx: &mut App| {
-        let session = Sonora::global(cx).session.clone();
+        let session = YtmHybrid::global(cx).session.clone();
         session.update(cx, |session, cx| session.sign_out(cx));
     });
 
     cx.on_action(
         |_: &RefreshLibrary, cx: &mut App| match router::trail(cx).read(cx).current() {
             Destination::History => {
-                let history = Sonora::global(cx).history.clone();
+                let history = YtmHybrid::global(cx).history.clone();
                 history.update(cx, |history, cx| history.refresh(cx));
             }
             at => {
@@ -48,34 +48,34 @@ pub fn register(lingers: bool, cx: &mut App) {
                     Destination::Local(_) => Shelf::Local,
                     _ => Shelf::Streaming,
                 };
-                let library = Sonora::global(cx).library.clone();
+                let library = YtmHybrid::global(cx).library.clone();
                 library.update(cx, |library, cx| library.refresh(shelf, cx));
             }
         },
     );
 
     cx.on_action(|_: &TogglePlayback, cx: &mut App| {
-        let playback = Sonora::global(cx).playback.clone();
+        let playback = YtmHybrid::global(cx).playback.clone();
         playback.update(cx, |playback, cx| playback.toggle_play(cx));
     });
 
     cx.on_action(|_: &SongPrevious, cx: &mut App| {
-        let playback = Sonora::global(cx).playback.clone();
+        let playback = YtmHybrid::global(cx).playback.clone();
         playback.update(cx, |playback, cx| playback.previous(cx));
     });
 
     cx.on_action(|_: &SongNext, cx: &mut App| {
-        let playback = Sonora::global(cx).playback.clone();
+        let playback = YtmHybrid::global(cx).playback.clone();
         playback.update(cx, |playback, cx| playback.next(cx));
     });
 
     cx.on_action(|_: &ToggleShuffle, cx: &mut App| {
-        let queue = Sonora::global(cx).queue.clone();
+        let queue = YtmHybrid::global(cx).queue.clone();
         queue.update(cx, |queue, cx| queue.toggle_shuffle(cx));
     });
 
     cx.on_action(|_: &ToggleRepeat, cx: &mut App| {
-        let playback = Sonora::global(cx).playback.clone();
+        let playback = YtmHybrid::global(cx).playback.clone();
         playback.update(cx, |playback, cx| playback.toggle_repeat(cx));
     });
 
@@ -156,7 +156,7 @@ fn change_font_size(
     cx: &mut App,
     change: impl FnOnce(&mut AppSettings, &mut Context<AppSettings>),
 ) {
-    let settings = Sonora::global(cx).settings.clone();
+    let settings = YtmHybrid::global(cx).settings.clone();
     settings.update(cx, change);
     let (tint, tint_secondary) = (cx.theme().tint, cx.theme().tint_secondary);
     let (look, overrides) = {

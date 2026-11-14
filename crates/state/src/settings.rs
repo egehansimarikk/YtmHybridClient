@@ -33,9 +33,8 @@ use ui::{
 
 use crate::pins::PinSort;
 use crate::queue::{Resume, gap_target};
-use crate::{Outcome, Repeat, Sonora, Toasts};
+use crate::{Outcome, Repeat, YtmHybrid, Toasts};
 
-/// Which panel the right sidebar shows.
 /// What the Discord status calls itself. `Provider` asks the provider the track came from, so
 /// local files say Local Music rather than the provider's own name. `ArtistTitle` shows as
 /// "Artist - Title".
@@ -127,6 +126,7 @@ impl FullscreenControlsAutohide {
     }
 }
 
+/// Which panel the right sidebar shows.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SideTab {
@@ -260,7 +260,7 @@ const DEFAULT_LYRICS_SCALE: f32 = 1.;
 const DEFAULT_STARTUP: &str = "home";
 /// "Whatever the platform uses".
 pub const SYSTEM_FONT: &str = "auto";
-/// Every lyrics source Sonora knows by the name its provider reports, in the order a fresh
+/// Every lyrics source YTM Hybrid knows by the name its provider reports, in the order a fresh
 /// install prefers them.
 pub const LYRICS_SOURCES: [&str; 8] = [
     LOCAL,
@@ -287,6 +287,8 @@ struct Held {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 struct Values {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    audio_device: Option<String>,
     normalisation: bool,
     gapless: bool,
     equalizer: bool,
@@ -337,6 +339,22 @@ struct Values {
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     scrobbling: BTreeMap<String, Account>,
     appearance: Appearance,
+}
+
+impl Values {
+    /// Ensures legacy settings files receive the `LOCAL` lyrics provider once without
+    /// overriding an explicit user disable later on.
+    fn migrate(&mut self) -> bool {
+        if self.local_lyrics_offered {
+            return false;
+        }
+        self.local_lyrics_offered = true;
+        if !self.lyrics_providers.iter().any(|name| name == LOCAL) {
+            self.lyrics_providers.push(LOCAL.to_owned());
+            self.lyrics_providers.sort();
+        }
+        true
+    }
 }
 
 /// The `appearance` block of `settings.json`. Fixed choices are stored by id, removed variant
@@ -450,6 +468,7 @@ enum SettingsSave {
 impl Default for Values {
     fn default() -> Self {
         Self {
+            audio_device: None,
             normalisation: false,
             gapless: true,
             equalizer: false,
@@ -466,7 +485,7 @@ impl Default for Values {
             discord_provider_button: true,
             artwork_for_local_files: true,
             lyrics_for_local_files: true,
-            local_lyrics_offered: false,
+            local_lyrics_offered: true,
             lyrics_provider_priority: lyrics_priority(&[]),
             // Kugou and NetEase, the last two, start switched off.
             lyrics_providers: LYRICS_SOURCES[..6]
@@ -547,7 +566,7 @@ impl Default for StateValues {
             shuffle: false,
             repeat: Repeat::Off,
             radio: false,
-            provider: "spotify".to_owned(),
+            provider: "youtube".to_owned(),
             tables: HashMap::new(),
             sorting: HashMap::new(),
             filters: HashMap::new(),
@@ -713,7 +732,7 @@ impl AppSettings {
             }
         };
         let parsed = bytes.map(|bytes| (serde_json::from_slice::<Values>(json(&bytes)), bytes));
-        let (values, writable, disk, broken) = match parsed {
+        let (mut values, writable, disk, broken) = match parsed {
             Some((Ok(values), bytes)) => (values, writable, Some(bytes), None),
             Some((Err(error), _)) => {
                 log::warn!("settings: cannot parse {}: {error}", path.display());
@@ -721,6 +740,7 @@ impl AppSettings {
             }
             None => (Values::default(), writable, None, None),
         };
+        values.migrate();
 
         let state = match store.load() {
             Ok(Some(saved)) => saved,
@@ -761,6 +781,18 @@ impl AppSettings {
                 cx,
             );
         }
+    }
+
+    pub fn audio_device(&self) -> Option<&str> {
+        self.values.audio_device.as_deref()
+    }
+
+    pub fn set_audio_device(&mut self, device: Option<String>, cx: &mut Context<Self>) {
+        if self.values.audio_device == device {
+            return;
+        }
+        self.values.audio_device = device;
+        self.schedule_save(cx);
     }
 
     pub fn volume(&self) -> f32 {
@@ -1058,7 +1090,7 @@ impl AppSettings {
         }
     }
 
-    /// Whether the visualizer ignores Sonora's volume and draws the track at its own level.
+    /// Whether the visualizer ignores YTM Hybrid's volume and draws the track at its own level.
     pub fn visualizer_absolute(&self) -> bool {
         self.values.appearance.visualizer_absolute
     }
@@ -2137,7 +2169,7 @@ impl AppSettings {
             self.broken = None;
             return SettingsReload::Unchanged;
         }
-        let values = match serde_json::from_slice::<Values>(json(&bytes)) {
+        let mut values = match serde_json::from_slice::<Values>(json(&bytes)) {
             Ok(values) => values,
             Err(error) => {
                 log::warn!("settings: cannot parse {}: {error}", self.path.display());
@@ -2151,6 +2183,7 @@ impl AppSettings {
                 return SettingsReload::Unchanged;
             }
         };
+        values.migrate();
 
         log::info!("settings: reloaded {}", self.path.display());
         let previous = std::mem::replace(&mut self.values, values);
@@ -2180,7 +2213,7 @@ impl AppSettings {
 
 /// The saved window frame and its display, if its centre still lands on a connected display.
 pub fn window_placement(least: Size<Pixels>, cx: &App) -> Option<(WindowBounds, DisplayId)> {
-    let frame = Sonora::global(cx).settings.read(cx).state.window?;
+    let frame = YtmHybrid::global(cx).settings.read(cx).state.window?;
     if !frame.sane() {
         return None;
     }
@@ -2195,7 +2228,7 @@ pub fn window_placement(least: Size<Pixels>, cx: &App) -> Option<(WindowBounds, 
 
 /// Starts saving the window frame for the next launch.
 pub fn remember_window(window: &mut Window, cx: &mut App) {
-    let settings = Sonora::global(cx).settings.clone();
+    let settings = YtmHybrid::global(cx).settings.clone();
     settings.update(cx, |settings, cx| settings.watch_window(window, cx));
 }
 

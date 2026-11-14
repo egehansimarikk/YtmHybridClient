@@ -1,17 +1,16 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context as _, Result};
-use music::spotify::{AuthConfig, LibrespotClient, auth};
+use anyhow::Result;
+use music::youtube::{YouTubeClient, YouTubeProvider};
 use music::{
-    Lyrics, LyricsHit, LyricsProvider, LyricsQuery, MusicApi, Track, TrackKey, binimum, kugou,
-    lrclib, musixmatch, netease,
+    Lyrics, LyricsHit, LyricsProvider, LyricsQuery, MusicApi, MusicProvider, Track, TrackKey,
+    binimum, kugou, lrclib, musixmatch, netease,
 };
+use ytmusic::YtMusic;
 
-const SOURCES: [&str; 7] = [
-    "Spotify",
+const SOURCES: [&str; 5] = [
     "YouTube Music",
-    "Apple Music",
     "Musixmatch",
     "LrcLib",
     "Kugou",
@@ -39,7 +38,6 @@ struct Row {
 
 fn providers() -> Vec<Arc<dyn LyricsProvider>> {
     vec![
-        Arc::new(music::spotify::SpotifyLyrics::from_env()),
         Arc::new(music::youtube::YouTubeLyrics::new()),
         Arc::new(binimum::Binimum::new()),
         Arc::new(musixmatch::Musixmatch::new()),
@@ -60,11 +58,10 @@ async fn main() -> Result<()> {
         .and_then(|value| value.parse().ok())
         .unwrap_or(2000);
 
-    let session = auth::restore(&AuthConfig::from_env())
-        .await
-        .context("cannot restore the cached session")?
-        .context("no cached credentials; sign in with sonora first")?;
-    let client = Arc::new(LibrespotClient::new(session));
+    let client: Arc<dyn MusicApi> = match YouTubeProvider::new().restore().await? {
+        Some(session) => session.api,
+        None => Arc::new(YouTubeClient::new(Arc::new(YtMusic::anonymous()))),
+    };
     let providers = providers();
 
     if let Ok(wanted) = std::env::var("FIND") {
@@ -130,7 +127,7 @@ async fn measure(track: &Track, providers: &[Arc<dyn LyricsProvider>]) -> Row {
         album: (!track.album.is_empty()).then(|| track.album.clone()),
         duration: track.duration,
         track: Some(TrackKey {
-            provider: "spotify",
+            provider: "youtube",
             id: id.clone(),
         }),
     };

@@ -4,7 +4,7 @@
 use gpui::prelude::*;
 use gpui::{Context, Entity, FocusHandle, Render, Window, div};
 use i18n::t;
-use state::{CdmState, Drm, Sonora};
+use state::{CdmState, Drm, YtmHybrid};
 use ui::{ActiveTheme as _, Button, Dismiss, FORM_CONTEXT, Modal, Submit, Text};
 
 pub(crate) struct WidevinePrompt {
@@ -16,7 +16,7 @@ pub(crate) struct WidevinePrompt {
 
 impl WidevinePrompt {
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let drm = Sonora::global(cx).drm.clone();
+        let drm = YtmHybrid::global(cx).drm.clone();
         cx.observe(&drm, |_, _, cx| cx.notify()).detach();
         Self {
             drm,

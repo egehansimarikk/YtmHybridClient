@@ -156,7 +156,7 @@ impl ThumbBar {
                     break;
                 }
                 cx.update(|cx| {
-                    let playback = Sonora::global(cx).playback.clone();
+                    let playback = YtmHybrid::global(cx).playback.clone();
                     playback.update(cx, |playback, cx| match event {
                         Event::Previous => playback.previous(cx),
                         Event::Toggle => playback.toggle_play(cx),
@@ -166,10 +166,10 @@ impl ThumbBar {
             }
         });
 
-        let playback = Sonora::global(cx).playback.clone();
+        let playback = YtmHybrid::global(cx).playback.clone();
         cx.observe(&playback, |this, _, cx| this.publish(cx))
             .detach();
-        let settings = Sonora::global(cx).settings.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
         cx.observe(&settings, |this, _, cx| this.publish(cx))
             .detach();
 
@@ -544,7 +544,7 @@ fn icon(rgba: &[u8], size: u32) -> Option<HICON> {
 
 /// Reads what the toolbar should be showing right now.
 fn shown(cx: &App) -> Shown {
-    let playback = Sonora::global(cx).playback.read(cx);
+    let playback = YtmHybrid::global(cx).playback.read(cx);
     let playing = matches!(
         playback.state(),
         PlaybackState::Playing | PlaybackState::Loading

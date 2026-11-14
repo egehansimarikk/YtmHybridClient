@@ -8,7 +8,7 @@ use gpui::{App, AppContext as _, Context, Entity, Global, Task};
 use music::Track;
 use tokio::sync::mpsc;
 
-use crate::{Cover, Io, Playback, PlaybackState, Queue, Repeat, Sonora, join};
+use crate::{Cover, Io, Playback, PlaybackState, Queue, Repeat, YtmHybrid, join};
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod mpris;
@@ -66,10 +66,10 @@ pub fn attach(hwnd: Option<*mut c_void>, cx: &mut App) {
         }
     };
 
-    let sonora = Sonora::global(cx);
-    let playback = sonora.playback.clone();
-    let queue = sonora.queue.clone();
-    let cover = sonora.cover.clone();
+    let app = YtmHybrid::global(cx);
+    let playback = app.playback.clone();
+    let queue = app.queue.clone();
+    let cover = app.cover.clone();
     let io = Io::global(cx);
     let remote = cx.new(|cx| Remote::new(controls, receiver, playback, queue, cover, io, cx));
     remote.update(cx, |remote, cx| remote.publish(cx));

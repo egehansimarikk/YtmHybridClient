@@ -15,7 +15,7 @@ use ui::Input;
 use crate::chrome::Chrome;
 use crate::shared::menus::{ItemMenu, album_menu, artist_menu, playlist_menu};
 use state::{
-    AlbumHit, ArtistHit, Genres, Hit, Kind, Network, Playback, PlaylistHit, Search, Sonora,
+    AlbumHit, ArtistHit, Genres, Hit, Kind, Network, Playback, PlaylistHit, Search, YtmHybrid,
 };
 use ui::ActiveTheme as _;
 use ui::{
@@ -116,7 +116,7 @@ impl SearchView {
         .detach();
         let chrome = Chrome::entity(cx);
         cx.observe(&chrome, |_, _, cx| cx.notify()).detach();
-        let library = Sonora::global(cx).library.clone();
+        let library = YtmHybrid::global(cx).library.clone();
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
         let current_playback = playback_status(&playback, cx);
         cx.observe(&playback, |this, playback, cx| {
@@ -851,7 +851,7 @@ fn menu(
 }
 
 fn album_of(hit: &AlbumHit, cx: &App) -> Album {
-    Sonora::global(cx)
+    YtmHybrid::global(cx)
         .library
         .read(cx)
         .album(&hit.id)
@@ -874,7 +874,7 @@ fn album_of(hit: &AlbumHit, cx: &App) -> Album {
 }
 
 fn playlist_of(hit: &PlaylistHit, cx: &App) -> Playlist {
-    Sonora::global(cx)
+    YtmHybrid::global(cx)
         .library
         .read(cx)
         .playlist(&hit.id)
@@ -896,7 +896,7 @@ fn playlist_of(hit: &PlaylistHit, cx: &App) -> Playlist {
 
 fn artist_of(hit: &ArtistHit, cx: &App) -> SavedArtist {
     let id = hit.id.clone().unwrap_or_default();
-    Sonora::global(cx)
+    YtmHybrid::global(cx)
         .library
         .read(cx)
         .artist(&id)

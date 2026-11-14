@@ -9,7 +9,7 @@ use router::{Destination, NavigationEvent, Screen, SettingsTab, back, forward, n
 use state::{
     ArtistDetail, Detail, GenreDetails, Genres, Home, Io, Library, Network, Playback, Profile,
     Queue, Reconnected, SYSTEM_FONT, Scan, Search, Session, SessionEvent, SessionState, Shelf,
-    SideTab, SongDetail, Sonora,
+    SideTab, SongDetail, YtmHybrid,
 };
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use ui::WindowFrame;
@@ -130,7 +130,7 @@ impl Root {
 
         cx.subscribe(&session, |_, session, event, cx| {
             if matches!(event, SessionEvent::SignedIn) && !session.read(cx).authenticated() {
-                let settings = Sonora::global(cx).settings.clone();
+                let settings = YtmHybrid::global(cx).settings.clone();
                 let startup = settings.read(cx).startup().to_owned();
                 if Screen::from_id(&startup).is_some_and(Screen::needs_account) {
                     settings.update(cx, |settings, cx| {
@@ -178,7 +178,7 @@ impl Root {
         let io = Io::global(cx);
         let home_state = cx.new(|cx| Home::new(library.clone(), session.clone(), io.clone(), cx));
         let home = cx.new(|cx| HomeView::new(home_state, playback.clone(), cx));
-        let history = Sonora::global(cx).history.clone();
+        let history = YtmHybrid::global(cx).history.clone();
         let history = cx.new(|cx| HistoryView::new(history, playback.clone(), window, cx));
 
         let search_library = library.clone();
@@ -230,11 +230,11 @@ impl Root {
             }
             // Pick up plays made on other devices while Sonora was in the background, off the
             // window coming back to the foreground rather than a poll.
-            Sonora::global(cx)
+            YtmHybrid::global(cx)
                 .history
                 .clone()
                 .update(cx, |history, cx| history.refresh(cx));
-            let settings = Sonora::global(cx).settings.clone();
+            let settings = YtmHybrid::global(cx).settings.clone();
             let (stillness, pace) = {
                 let settings = settings.read(cx);
                 (settings.stillness(), settings.pace())
@@ -252,7 +252,7 @@ impl Root {
 
         window
             .observe_window_appearance(|_, cx| {
-                let settings = Sonora::global(cx).settings.clone();
+                let settings = YtmHybrid::global(cx).settings.clone();
                 let reported = ThemeKind::reported(cx);
                 let changed = ThemeKind::assumed() != Some(reported);
                 if changed {
@@ -323,7 +323,7 @@ impl Root {
             #[cfg(target_os = "macos")]
             framed: None,
             #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-            decorations: Sonora::global(cx).settings.read(cx).window_decorations(),
+            decorations: YtmHybrid::global(cx).settings.read(cx).window_decorations(),
         };
         root.show(start, cx);
         root
@@ -337,7 +337,7 @@ impl Root {
         let detail = cx.new(|cx| {
             ArtistDetail::new(
                 self.session.clone(),
-                Sonora::global(cx).library.clone(),
+                YtmHybrid::global(cx).library.clone(),
                 self.io.clone(),
                 cx,
             )
@@ -370,7 +370,7 @@ impl Root {
         let detail = cx.new(|cx| {
             Detail::new(
                 self.session.clone(),
-                Sonora::global(cx).library.clone(),
+                YtmHybrid::global(cx).library.clone(),
                 self.io.clone(),
                 cx,
             )
@@ -398,7 +398,7 @@ impl Root {
         let detail = cx.new(|cx| {
             Detail::new(
                 self.session.clone(),
-                Sonora::global(cx).library.clone(),
+                YtmHybrid::global(cx).library.clone(),
                 self.io.clone(),
                 cx,
             )
@@ -443,7 +443,7 @@ impl Root {
     fn announce_fullscreen(&self, fullscreen: bool, cx: &mut Context<Self>) {
         self.adaptive
             .update(cx, |adaptive, cx| adaptive.set_fullscreen(fullscreen, cx));
-        let wake = Sonora::global(cx).wake.clone();
+        let wake = YtmHybrid::global(cx).wake.clone();
         wake.update(cx, |wake, cx| wake.set_fullscreen(fullscreen, cx));
     }
 
@@ -456,7 +456,7 @@ impl Root {
         };
         match opening {
             true => {
-                if Sonora::global(cx).settings.read(cx).os_fullscreen() && !window.is_fullscreen() {
+                if YtmHybrid::global(cx).settings.read(cx).os_fullscreen() && !window.is_fullscreen() {
                     window.toggle_fullscreen();
                     self.os_entered = true;
                 }
@@ -548,7 +548,7 @@ impl Root {
 
     /// The font the window is set in, built again only once a different font is chosen.
     fn font(&mut self, cx: &App) -> Font {
-        let chosen = Sonora::global(cx).settings.read(cx).font();
+        let chosen = YtmHybrid::global(cx).settings.read(cx).font();
         match &self.font {
             Some((name, font)) if name == chosen => font.clone(),
             _ => {
@@ -748,7 +748,7 @@ fn scripts(custom: bool) -> &'static FontFallbacks {
 /// Tells the wake lock whether the window has focus, which the display lock needs.
 fn update_focus_for_wake(window: &Window, cx: &mut App) {
     let focused = window.is_window_active();
-    let wake = Sonora::global(cx).wake.clone();
+    let wake = YtmHybrid::global(cx).wake.clone();
     wake.update(cx, |wake, cx| wake.set_focused(focused, cx));
 }
 
@@ -806,7 +806,7 @@ impl Render for Root {
         {
             let rounding = match window.is_fullscreen() {
                 true => ui::Rounding::Square,
-                false => Sonora::global(cx).settings.read(cx).window_rounding(),
+                false => YtmHybrid::global(cx).settings.read(cx).window_rounding(),
             };
             if self.rounded != Some(rounding) {
                 self.rounded = Some(rounding);
@@ -819,7 +819,7 @@ impl Render for Root {
         // AppKit puts the traffic lights back itself on the way out.
         #[cfg(target_os = "macos")]
         if !window.is_fullscreen() {
-            let settings = Sonora::global(cx).settings.read(cx);
+            let settings = YtmHybrid::global(cx).settings.read(cx);
             let framed = (
                 settings.window_rounding(),
                 crate::chrome::traffic_lights(
@@ -838,7 +838,7 @@ impl Render for Root {
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         {
-            let decorations = Sonora::global(cx).settings.read(cx).window_decorations();
+            let decorations = YtmHybrid::global(cx).settings.read(cx).window_decorations();
             if self.decorations != decorations {
                 self.decorations = decorations;
                 window.request_decorations(decorations);
@@ -851,7 +851,7 @@ impl Render for Root {
         // `PlayerBar` for the top and bottom edges. Rounding the root too keeps its own
         // background quad correct and costs nothing.
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let radius = crate::chrome::window_radius(Sonora::global(cx).settings.read(cx), cx, window);
+        let radius = crate::chrome::window_radius(YtmHybrid::global(cx).settings.read(cx), cx, window);
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         let radius: Option<gpui::Pixels> = None;
 

@@ -3,7 +3,7 @@ use std::time::Duration;
 use gpui::{App, Context, Entity, EventEmitter, Task};
 
 use crate::session::Session;
-use crate::{Io, Sonora};
+use crate::{Io, YtmHybrid};
 
 /// How long to wait before each check of whether the network is back. The last one repeats
 /// for as long as the network stays gone.
@@ -44,14 +44,14 @@ impl Network {
     }
 
     pub fn global(cx: &App) -> Entity<Self> {
-        Sonora::global(cx).network.clone()
+        YtmHybrid::global(cx).network.clone()
     }
 
     /// Whether the network is gone. Every screen that needs one asks this rather than waiting
     /// for its own load to fail.
     pub fn lost(cx: &App) -> bool {
-        match cx.try_global::<Sonora>() {
-            Some(sonora) => sonora.network.read(cx).lost,
+        match cx.try_global::<YtmHybrid>() {
+            Some(ytm_hybrid) => ytm_hybrid.network.read(cx).lost,
             None => false,
         }
     }
@@ -63,8 +63,8 @@ impl Network {
             return;
         }
         let Some(network) = cx
-            .try_global::<Sonora>()
-            .map(|sonora| sonora.network.clone())
+            .try_global::<YtmHybrid>()
+            .map(|ytm_hybrid| ytm_hybrid.network.clone())
         else {
             return;
         };
@@ -83,8 +83,8 @@ impl Network {
     /// Notes that something reached the network, which is the quickest way back online.
     pub fn reached(cx: &mut App) {
         let Some(network) = cx
-            .try_global::<Sonora>()
-            .map(|sonora| sonora.network.clone())
+            .try_global::<YtmHybrid>()
+            .map(|ytm_hybrid| ytm_hybrid.network.clone())
         else {
             return;
         };

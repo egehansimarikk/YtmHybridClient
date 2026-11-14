@@ -1,18 +1,20 @@
-//! Read-only check of Spotify's mixed library using the cached session.
+//! Read-only check of YouTube Music's library using the cached session.
 use anyhow::{Context as _, Result};
-use music::MusicApi;
-use music::spotify::{AuthConfig, LibrespotClient, auth};
+use music::youtube::YouTubeProvider;
+use music::MusicProvider;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     rustls::crypto::ring::default_provider()
         .install_default()
         .ok();
-    let session = auth::restore(&AuthConfig::from_env())
+    let provider = YouTubeProvider::new();
+    let session = provider
+        .restore()
         .await?
-        .context("no cached Spotify session")?;
-    let client = LibrespotClient::new(session);
-    let items = client
+        .context("no cached YouTube Music session")?;
+    let items = session
+        .api
         .pin_targets()
         .await?
         .context("provider keeps no pins")?;

@@ -3,7 +3,7 @@ use gpui::{App, ClickEvent, ClipboardItem, Context, Entity, SharedString, Window
 use i18n::t;
 use music::{Album, GenreItem, MediaKind, Playlist, SavedArtist, Track};
 use router::{Destination, navigate};
-use state::{Addition, Detail, History, Library, Origin, Outcome, Playback, Shelf, Sonora, Toasts};
+use state::{Addition, Detail, History, Library, Origin, Outcome, Playback, Shelf, YtmHybrid, Toasts};
 use ui::{Menu, MenuItem, MenuSearch, Pin, PinKind, Scrollbar, SubmenuState};
 
 use crate::shared::confirm::Confirm;
@@ -171,7 +171,7 @@ impl ItemMenu {
     /// checked, and `many` says whether one track or a run of them is being added. An album is
     /// never checked, since its tracks are only read once it is added.
     fn playlists(&self, addition: Addition, shelf: Shelf, many: bool, cx: &App) -> Menu {
-        let library = Sonora::global(cx).library.clone();
+        let library = YtmHybrid::global(cx).library.clone();
         let playlists: Vec<Playlist> = library
             .read(cx)
             .state(shelf)
@@ -308,7 +308,7 @@ impl ItemMenu {
         };
         let count = tracks.len();
         let many = count > 1;
-        let library = Sonora::global(cx).library.clone();
+        let library = YtmHybrid::global(cx).library.clone();
         let held: Vec<String> = tracks.iter().filter_map(|track| track.id.clone()).collect();
         let imported = !held.is_empty() && held.iter().all(|id| music::is_local_id(id));
         let ids: Vec<String> = match imported {
@@ -357,7 +357,7 @@ impl ItemMenu {
         );
         // A provider that lists no station tracks gets no station item at all, rather than one
         // that plays the seed and stops.
-        let stations = Sonora::global(cx).session.read(cx).capabilities().radio;
+        let stations = YtmHybrid::global(cx).session.read(cx).capabilities().radio;
         let radio = match (many || !stations, track.id.is_some() && track.playable) {
             (true, _) => None,
             (false, true) => {
@@ -366,7 +366,7 @@ impl ItemMenu {
                     MenuItem::new("song-radio", t!("menu-song-radio"))
                         .icon("icons/radio.svg")
                         .on_click(move |_, _, cx| {
-                            let playback = Sonora::global(cx).playback.clone();
+                            let playback = YtmHybrid::global(cx).playback.clone();
                             playback.update(cx, |playback, cx| playback.play_radio(&track, cx));
                         }),
                 )
@@ -379,7 +379,7 @@ impl ItemMenu {
         };
         let toggle_library = library_toggle(tracks, &library, cx);
         let membership =
-            (!barren && !imported && Sonora::global(cx).session.read(cx).capabilities().library)
+            (!barren && !imported && YtmHybrid::global(cx).session.read(cx).capabilities().library)
                 .then(|| library_membership(tracks, &library, cx));
 
         let album = match (many, columns.album, track.album_id.clone()) {
@@ -527,7 +527,7 @@ fn queue_item(
     }
     let queued = queued.to_vec();
     item.on_click(move |_, _, cx| {
-        let playback = Sonora::global(cx).playback.clone();
+        let playback = YtmHybrid::global(cx).playback.clone();
         playback.update(cx, |playback, cx| match queued.len() {
             1 => one(playback, queued[0].clone(), cx),
             _ => many(playback, queued.clone(), None, cx),
@@ -655,11 +655,11 @@ fn library_membership(tracks: &[Track], library: &Entity<Library>, cx: &App) -> 
 
 /// The same for one album, and nothing on a provider whose library is its favorites.
 fn album_membership_item(album: Album, cx: &App) -> Option<MenuItem> {
-    let session = Sonora::global(cx).session.read(cx);
+    let session = YtmHybrid::global(cx).session.read(cx);
     if !session.capabilities().library || music::is_local_id(&album.id) {
         return None;
     }
-    let library = Sonora::global(cx).library.clone();
+    let library = YtmHybrid::global(cx).library.clone();
     let present = library.read(cx).in_library(&album.id);
     let item = MenuItem::new(
         "toggle-album-membership",
@@ -675,7 +675,7 @@ fn album_membership_item(album: Album, cx: &App) -> Option<MenuItem> {
     Some(match library.read(cx).pending_library(&album.id) {
         true => item.disabled(),
         false => item.on_click(move |_, _, cx| {
-            let library = Sonora::global(cx).library.clone();
+            let library = YtmHybrid::global(cx).library.clone();
             library.update(cx, |library, cx| {
                 library.set_album_in_library(album.clone(), !present, cx)
             });
@@ -772,7 +772,7 @@ pub(crate) fn album_menu(
 }
 
 fn album_library_item(album: Album, cx: &App) -> MenuItem {
-    let library = Sonora::global(cx).library.clone();
+    let library = YtmHybrid::global(cx).library.clone();
     let saved = library.read(cx).saved_album(&album.id);
     let item = MenuItem::new(
         "toggle-album-library",
@@ -791,7 +791,7 @@ fn album_library_item(album: Album, cx: &App) -> MenuItem {
         false => item.on_click(move |_, _, cx| match saved {
             true => Confirm::albums(vec![album.clone()], cx),
             false => {
-                let library = Sonora::global(cx).library.clone();
+                let library = YtmHybrid::global(cx).library.clone();
                 library.update(cx, |library, cx| library.toggle_album(album.clone(), cx));
             }
         }),
@@ -876,7 +876,7 @@ pub(crate) fn artist_menu(
 }
 
 fn artist_library_item(artist: SavedArtist, cx: &App) -> Option<MenuItem> {
-    if !Sonora::global(cx)
+    if !YtmHybrid::global(cx)
         .session
         .read(cx)
         .capabilities()
@@ -884,7 +884,7 @@ fn artist_library_item(artist: SavedArtist, cx: &App) -> Option<MenuItem> {
     {
         return None;
     }
-    let library = Sonora::global(cx).library.clone();
+    let library = YtmHybrid::global(cx).library.clone();
     let saved = library.read(cx).saved_artist(&artist.id);
     let item = MenuItem::new(
         "toggle-artist-library",
@@ -903,7 +903,7 @@ fn artist_library_item(artist: SavedArtist, cx: &App) -> Option<MenuItem> {
         false => item.on_click(move |_, _, cx| match saved {
             true => Confirm::artists(vec![artist.clone()], cx),
             false => {
-                let library = Sonora::global(cx).library.clone();
+                let library = YtmHybrid::global(cx).library.clone();
                 library.update(cx, |library, cx| library.toggle_artist(artist.clone(), cx));
             }
         }),
@@ -935,7 +935,7 @@ pub(crate) fn playlist_menu(playlist: Playlist, playback: Entity<Playback>, cx: 
         .on_click({
             let id = id.clone();
             move |_, _, cx| {
-                let library = Sonora::global(cx).library.clone();
+                let library = YtmHybrid::global(cx).library.clone();
                 library.update(cx, |library, cx| {
                     library.set_playlist_public(id.clone(), !public, cx)
                 });
@@ -1014,7 +1014,7 @@ pub(crate) fn item_menu(
     playback: Entity<Playback>,
     cx: &App,
 ) -> Menu {
-    let library = Sonora::global(cx).library.clone();
+    let library = YtmHybrid::global(cx).library.clone();
     let built = match pin.kind {
         PinKind::Album => library
             .read(cx)
@@ -1179,8 +1179,8 @@ fn transport_items(pin: &Pin, playback: Entity<Playback>) -> Vec<MenuItem> {
 /// Pins or unpins anything the app can open. Every context menu carries it, and the provider
 /// that keeps pins of its own is told alongside the local list.
 pub(crate) fn pin_action(pin: &Pin, cx: &App) -> MenuItem {
-    let pins = Sonora::global(cx).pins.clone();
-    let session = Sonora::global(cx).session.clone();
+    let pins = YtmHybrid::global(cx).pins.clone();
+    let session = YtmHybrid::global(cx).session.clone();
     let known = session.read(cx).slug_for(&pin.id).is_some();
     let pinned = pins.read(cx).holds(pin, cx);
     let held = pin.clone();
@@ -1208,7 +1208,7 @@ fn media_kind(kind: PinKind) -> MediaKind {
 }
 
 fn saved_track(id: &str, cx: &App) -> Option<Track> {
-    Sonora::global(cx)
+    YtmHybrid::global(cx)
         .library
         .read(cx)
         .state(Shelf::of(id))
@@ -1237,7 +1237,7 @@ fn share_link(kind: MediaKind, id: Option<&str>, cx: &App) -> Result<String, &'s
         return Err("menu-copy-link-none");
     };
     let local = music::is_local_id(id);
-    let session = Sonora::global(cx).session.read(cx);
+    let session = YtmHybrid::global(cx).session.read(cx);
     let client = match local {
         true => session.local_client(),
         false => session.client(),
@@ -1251,7 +1251,7 @@ fn share_link(kind: MediaKind, id: Option<&str>, cx: &App) -> Result<String, &'s
 }
 
 fn playlist_library_item(playlist: Playlist, cx: &App) -> MenuItem {
-    let library = Sonora::global(cx).library.clone();
+    let library = YtmHybrid::global(cx).library.clone();
     let saved = library.read(cx).playlist(&playlist.id).is_some();
 
     match saved {
@@ -1264,7 +1264,7 @@ fn playlist_library_item(playlist: Playlist, cx: &App) -> MenuItem {
         false => MenuItem::new("join-playlist", t!("menu-add-playlist-to-library"))
             .icon("icons/heart.svg")
             .on_click(move |_, _, cx| {
-                let library = Sonora::global(cx).library.clone();
+                let library = YtmHybrid::global(cx).library.clone();
                 library.update(cx, |library, cx| {
                     library.add_playlist_to_library(playlist.clone(), cx)
                 });

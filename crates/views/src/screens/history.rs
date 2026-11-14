@@ -4,7 +4,7 @@ use gpui::{
 };
 use i18n::t;
 use music::Track;
-use state::{History, HistoryState, Playback, Sonora};
+use state::{History, HistoryState, Playback, YtmHybrid};
 use ui::{
     ActiveTheme as _, Button, Listing as _, Modal, Scrollbar, Scroller, TableDelegate, TableEvent,
     TableState, runtime, table, vacant,
@@ -59,7 +59,7 @@ impl HistoryView {
                 cx,
             )
             .with_history(history.clone())
-            .with_liked(Sonora::global(cx).library.clone())
+            .with_liked(YtmHybrid::global(cx).library.clone())
             .table(cx.weak_entity());
             TableState::new(TableDelegate::new(source, width, cx), cx).follow(scroll)
         });
@@ -74,7 +74,7 @@ impl HistoryView {
             cx.notify();
         })
         .detach();
-        let library = Sonora::global(cx).library.clone();
+        let library = YtmHybrid::global(cx).library.clone();
         cx.observe(&library, |this, _, cx| {
             this.table.refresh(cx);
             cx.notify();

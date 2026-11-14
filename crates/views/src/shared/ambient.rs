@@ -23,7 +23,7 @@ use std::time::Instant;
 
 use gpui::prelude::*;
 use gpui::{App, Bounds, Context, Hsla, Render, Rgba, Window, canvas, div, point, px};
-use state::Sonora;
+use state::YtmHybrid;
 use ui::{ActiveTheme as _, Theme};
 
 /// How many blobs make up the field.
@@ -85,7 +85,7 @@ pub(crate) struct Ambient {
 
 impl Ambient {
     pub(crate) fn new(cx: &mut Context<Self>) -> Self {
-        let settings = Sonora::global(cx).settings.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
         // Turning the drift back on has no frame of its own to land in: with
         // motion off nothing asks for one.
         cx.observe(&settings, |_, _, cx| cx.notify()).detach();
@@ -190,7 +190,7 @@ impl Render for Ambient {
         // fullscreen stops redrawing once settled. Either the system preference
         // or the setting of its own is enough to stop it.
         let animates =
-            ui::motion::animates(cx) && Sonora::global(cx).settings.read(cx).ambient_motion();
+            ui::motion::animates(cx) && YtmHybrid::global(cx).settings.read(cx).ambient_motion();
         // The drift asks for the next frame off the display's own clock rather than a timer of
         // its own. A timer is never in phase with the refresh, so a blob that moves a fraction
         // of a pixel per frame lands on one vsync, skips the next and doubles the one after,
@@ -222,7 +222,7 @@ impl Render for Ambient {
         // The field reaches into the corners the chrome rounds, and GPUI clips only to a
         // rectangle, so the sheet takes the window's radius itself.
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let radius = crate::chrome::window_radius(Sonora::global(cx).settings.read(cx), cx, window);
+        let radius = crate::chrome::window_radius(YtmHybrid::global(cx).settings.read(cx), cx, window);
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         let radius: Option<gpui::Pixels> = None;
 
@@ -318,7 +318,7 @@ impl Render for Ambient {
 /// Whether the ambient background is on. Fullscreen reads it for the frosted
 /// glass on its controls as well, which only has the field to blur.
 pub(crate) fn shown(cx: &App) -> bool {
-    Sonora::global(cx).settings.read(cx).ambient()
+    YtmHybrid::global(cx).settings.read(cx).ambient()
 }
 
 /// A colour as the dark overlay leaves it. Black at `SHADE` over an opaque colour is that

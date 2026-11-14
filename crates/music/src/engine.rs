@@ -311,6 +311,7 @@ async fn engine_loop<F: Fetch>(
         volume: Volume::new(config.gain),
         equalizer: config.equalizer.clone(),
         spectrum,
+        spatial: config.spatial.clone(),
     };
     let (jobs, job_rx) = channel::<Job<F>>();
     let (joins, mut joined) = unbounded_channel::<Joined>();

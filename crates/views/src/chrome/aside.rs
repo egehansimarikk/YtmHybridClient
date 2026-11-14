@@ -16,7 +16,7 @@ use music::{Shape, Track, Voice};
 use router::{Destination, LibraryTab, Link as _};
 use state::{
     AppSettings, Lyrics, LyricsState, Network, Playback, PlaybackState, Queue, RomanizationScripts,
-    Shelf, SideTab, Sonora, Whence,
+    Shelf, SideTab, Whence, YtmHybrid,
 };
 use ui::{
     ActiveTheme as _, Button, Card, DraggedPin, Edge, Motion, Motioned as _, Pin, Pinnable as _,
@@ -378,9 +378,9 @@ impl Aside {
         let scrollbar =
             cx.new(|_| Scrollbar::new(scroll.0.borrow().base_handle.clone()).watching(me));
         let playlist_scrollbar = cx.new(|_| Scrollbar::inset().watching(me));
-        let lyrics = Sonora::global(cx).lyrics.clone();
+        let lyrics = YtmHybrid::global(cx).lyrics.clone();
         cx.observe(&lyrics, |_, _, cx| cx.notify()).detach();
-        let settings = Sonora::global(cx).settings.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
         cx.observe(&settings, |_, _, cx| cx.notify()).detach();
         let verse_bar = cx.new(|_| {
             Scrollbar::new(ScrollHandle::new())
@@ -932,7 +932,7 @@ impl Aside {
                         .gap_1()
                         // Only where a station exists to keep the queue going.
                         .when(
-                            Sonora::global(cx).session.read(cx).capabilities().radio,
+                            YtmHybrid::global(cx).session.read(cx).capabilities().radio,
                             |this| {
                                 this.child(
                                     Button::new("toggle-radio")
@@ -1801,7 +1801,7 @@ impl Aside {
             Whence::Local => Destination::Local(LibraryTab::Songs),
         };
         let name = match origin.whence {
-            Whence::Saved => match Sonora::global(cx).library.read(cx).shape(Shelf::Streaming) {
+            Whence::Saved => match YtmHybrid::global(cx).library.read(cx).shape(Shelf::Streaming) {
                 Shape::Saved => t!("library-liked-songs"),
                 Shape::Catalog => t!("nav-songs"),
             },

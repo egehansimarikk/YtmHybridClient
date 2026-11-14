@@ -1,7 +1,7 @@
 use gpui::prelude::*;
 use gpui::{App, Entity, SharedString, div};
 use i18n::t;
-use state::{Playback, Queue, Repeat, Sonora};
+use state::{Playback, Queue, Repeat, YtmHybrid};
 use ui::{ActiveTheme as _, Button};
 
 use crate::shared::ambient;
@@ -26,7 +26,7 @@ pub(crate) fn percent(fraction: f32) -> SharedString {
 /// which is the one shown, so callers only lend the track to read its state.
 pub(crate) fn like(track: Option<&music::Track>, playback: &Entity<Playback>, cx: &App) -> Button {
     let theme = *cx.theme();
-    let library = Sonora::global(cx).library.clone();
+    let library = YtmHybrid::global(cx).library.clone();
     let playback = playback.clone();
     let id = track.and_then(|track| track.id.as_deref());
     let saved = id.is_some_and(|id| library.read(cx).saved(id));

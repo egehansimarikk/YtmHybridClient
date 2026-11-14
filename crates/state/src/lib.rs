@@ -46,6 +46,7 @@ pub use library::{
 };
 pub use logging::log_file;
 pub use lyrics::{Lyrics, LyricsState};
+pub use music::{OutputDeviceInfo, output_devices};
 pub use network::{Network, Reconnected};
 pub use pins::{PinSort, Pins};
 pub use playback::{Origin, Playback, PlaybackState, Repeat, Sleep, Whence};
@@ -164,7 +165,7 @@ pub(crate) fn settled<T>(result: Result<T>, cx: &mut gpui::App) -> std::result::
     }
 }
 
-pub struct Sonora {
+pub struct YtmHybrid {
     pub session: Entity<Session>,
     pub cover: Entity<Cover>,
     pub drm: Entity<Drm>,
@@ -187,9 +188,9 @@ pub struct Sonora {
     pub wake: Entity<Wake>,
 }
 
-impl Global for Sonora {}
+impl Global for YtmHybrid {}
 
-impl Sonora {
+impl YtmHybrid {
     pub fn global(cx: &App) -> &Self {
         cx.global()
     }
@@ -210,6 +211,17 @@ pub fn init(
         settings.report_broken(cx);
         settings
     });
+    let initial_device = settings.read(cx).audio_device().map(str::to_owned);
+    music::set_preferred_device(initial_device.clone());
+    let mut last_device = initial_device;
+    cx.observe(&settings, move |settings, cx| {
+        let current = settings.read(cx).audio_device().map(str::to_owned);
+        if current != last_device {
+            last_device = current.clone();
+            music::set_preferred_device(current);
+        }
+    })
+    .detach();
     let session =
         cx.new(|cx| Session::new(providers, local_provider, settings.clone(), io.clone(), cx));
     let network = cx.new(|_| Network::new(session.clone(), io.clone()));
@@ -287,7 +299,7 @@ pub fn init(
         cx,
     );
 
-    cx.set_global(Sonora {
+    cx.set_global(YtmHybrid {
         session,
         cover,
         drm,

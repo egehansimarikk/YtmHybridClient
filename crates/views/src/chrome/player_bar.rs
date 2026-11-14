@@ -10,7 +10,7 @@ use gpui::{
 use gpui::{Window, div, px};
 use i18n::t;
 use input::{ToggleFullscreen, ToggleLyrics, ToggleQueue};
-use state::{AppSettings, Playback, Queue, SideTab, Sonora};
+use state::{AppSettings, Playback, Queue, SideTab, YtmHybrid};
 use ui::{
     Artwork, Button, ExplicitBadge, InlineLink, InlineLinks, Popup, Room, Scrollbar, Scrubber,
     ScrubberState, clock, tabular,
@@ -43,8 +43,8 @@ pub(crate) struct PlayerBar {
 
 impl PlayerBar {
     pub fn new(playback: Entity<Playback>, queue: Entity<Queue>, cx: &mut Context<Self>) -> Self {
-        let library = Sonora::global(cx).library.clone();
-        let settings = Sonora::global(cx).settings.clone();
+        let library = YtmHybrid::global(cx).library.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
         cx.observe(&playback, |_, _, cx| cx.notify()).detach();
         cx.observe(&queue, |_, _, cx| cx.notify()).detach();
         cx.observe(&library, |_, _, cx| cx.notify()).detach();

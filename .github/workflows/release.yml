@@ -238,26 +238,29 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=0.4.0" >> $GITHUB_OUTPUT
+            echo "VERSION=0.4.2" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Release Notes
         run: |
           cat > RELEASE_NOTES.md << 'EOF'
-          ## What's New in v0.4.0
+          ## What's New in v0.4.2
 
-          ### 🎧 Advanced Spatial Audio Engine
-          - **Bauer Crossfeed**: Integrated microsecond-delayed crossfeed with IIR low-pass filtering to eliminate headphone "in-head localization" fatigue.
-          - **HRTF 3D Stage Expansion**: High-precision ITD (Interaural Time Difference) ring buffer and ILD (Interaural Level Difference) high-shelf head-shadow modeling.
-          - **Early Reflections**: Multi-tap delay line (6-tap architectural acoustic simulation) adding natural depth and room resonance without muddying the mix.
-          - **Spatial Audio Presets & UI**: Added settings controls and state persistence for 4 distinct modes: **Off**, **Studio (Intimate)**, **Wide Stage**, and **Concert Hall**.
+          ### 🎛️ Audio Engine & Device Management
+          - **Refined 3D Soundstage & Acoustic Modes**: Overhauled the spatial audio engine in `crates/music/src/spatial.rs` with tuned Bauer crossfeed (bs2b), sub-bass mono anchoring, Mid/Side air expansion, and distinct multi-tap acoustic reflection models for *Studio*, *Wide Stage*, and *Concert Hall**).
+          - **Clean Output Device Selection**: Filtered out redundant virtual drivers, ALSA/Pulse/PipeWire plugin clutter, and duplicate card entries in `crates/music/src/audio.rs` so only clean hardware sinks and system defaults appear.
+          - **Streamlined Hardware List**: Improved usability and reliability when switching audio output devices on Linux and desktop environments.
 
-          ### 🛠️ Linux Sound Routing & PipeWire Optimization
-          - Created dedicated low-latency WirePlumber routing rules (`50-spatial-routing.conf`) ensuring bit-perfect 48kHz/F32LE streaming and clean JamesDSP passthrough compatibility.
+          ### 🌍 Localization & i18n
+          - **Expanded Language Support**: Resolved missing localization keys for audio output and spatial audio settings across supported locales.
+          - **UI Consistency**: Standardized translated labels across settings and player views.
 
-          ### 🧹 Branding & CI/CD Refinements
-          - **Complete Rebranding**: Purged legacy "Sonora" references across UI settings, network usage logs, and Discord Rich Presence integrations, fully standardizing on **YTM Hybrid**.
-          - **Robust CI/CD Workflows**: Enhanced GitHub Actions release asset collection with nested fallback paths (`dist/`, `target/debian/`) ensuring automated artifact uploads.
+          ### ⚙️ Architecture & View Stability
+          - **Global State Migration**: Standardized global state references from legacy `Sonora` identifiers to `YtmHybrid` across `crates/state` and `crates/views` (`root.rs`, `player_bar.rs`, `notice.rs`, `fullscreen.rs`).
+          - **Synced Lyrics Rendering Fix**: Fixed secondary lyrics lane timing variable resolution in `crates/views/src/chrome/aside.rs`.
+
+          ### 🛠️ CI/CD & Packaging
+          - **Release Workflow Alignment**: Updated `.github/workflows/release.yml` artifact packaging, checksum aggregation, and release notes generation for `v0.4.2`.
 
           ---
 
@@ -265,23 +268,23 @@ jobs:
 
           ### Windows
           - **Installer (Recommended)**: [`ytm-hybrid-Setup.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid-Setup.exe) (Includes Start Menu shortcuts and automated protocol registration).
-          - **Portable**: [`ytm-hybrid.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid.exe).
+          - **Executable (Portable)**: [`ytm-hybrid.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/download/v0.4.2/ytm-hybrid.exe)
 
           ### Linux
-          - **Debian / Ubuntu / Mint (.deb)**: [`ytm-hybrid_0.4.0_amd64.deb`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid_0.4.0_amd64.deb)
-          - **Generic Tarball (.tar.gz)**: [`ytm-hybrid-v0.4.0-linux-x64.tar.gz`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid-v0.4.0-linux-x64.tar.gz) (Includes `install.sh` for user bin deployment and desktop integration).
+          - **Debian / Ubuntu / Mint (.deb)**: [`ytm-hybrid_0.4.2_amd64.deb`](https://github.com/egehansimarikk/YtmHybridClient/releases/download/v0.4.2/ytm-hybrid_0.4.2_amd64.deb)
+          - **Generic Tarball (.tar.gz)**: [`ytm-hybrid-v0.4.2-linux-x64.tar.gz`](https://github.com/egehansimarikk/YtmHybridClient/releases/download/v0.4.2/ytm-hybrid-v0.4.2-linux-x64.tar.gz) (Includes `install.sh` for `~/.local/bin` deployment and desktop integration)
 
           ### macOS
-          - **Disk Image (.dmg)**: [`YTM-Hybrid-0.4.0-macOS.dmg`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/YTM-Hybrid-0.4.0-macOS.dmg).
+          - **Disk Image (.dmg)**: [`YTM-Hybrid-0.4.2-macOS.dmg`](https://github.com/egehansimarikk/YtmHybridClient/releases/download/v0.4.2/YTM-Hybrid-0.4.2-macOS.dmg)
 
           ---
 
           ## Verify Downloads
-          SHA256 checksum files are provided in the assets list (`SHA256SUMS.txt`, `SHA256SUMS-linux.txt`, `SHA256SUMS-windows.txt`, `SHA256SUMS-macos.txt`) to verify file integrity.
+          SHA256 checksum files (`SHA256SUMS.txt`, `SHA256SUMS-linux.txt`, `SHA256SUMS-windows.txt`, `SHA256SUMS-macos.txt`) are attached to verify archive and binary integrity.
 
           ---
 
-          **Full Changelog**: [v0.3.0...v0.4.0](https://github.com/egehansimarikk/YtmHybridClient/compare/v0.3.0...v0.4.0)
+          **Full Changelog**: [v0.4.0...v0.4.2](https://github.com/egehansimarikk/YtmHybridClient/compare/v0.4.0...v0.4.2)
           EOF
 
       - name: Create GitHub Release

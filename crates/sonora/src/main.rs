@@ -22,7 +22,7 @@ use gpui::{
 };
 use music::LyricsProvider;
 use router::Screen;
-use state::Sonora;
+use state::YtmHybrid;
 use ui::ActiveTheme as _;
 use ui::ThemeKind;
 use views::Root;
@@ -127,14 +127,14 @@ fn main() {
         state::install_rounded_window_hook(set_toolbar_style, cx);
         let opened_a_destination = opened_start.is_some();
         let start = opened_start.unwrap_or_else(|| {
-            let startup = Sonora::global(cx).settings.read(cx).startup().to_owned();
+            let startup = YtmHybrid::global(cx).settings.read(cx).startup().to_owned();
             Screen::from_id(&startup)
                 .unwrap_or(Screen::Home)
                 .destination()
         });
         router::init(start, cx);
         let (look, overrides, language, pack, stillness, pace, remembered) = {
-            let settings = Sonora::global(cx).settings.read(cx);
+            let settings = YtmHybrid::global(cx).settings.read(cx);
             (
                 settings.look(),
                 settings.theme_overrides(),
@@ -155,7 +155,7 @@ fn main() {
         };
         ThemeKind::assume(reported.unwrap_or(remembered));
         if let Some(reported) = reported.filter(|reported| *reported != remembered) {
-            Sonora::global(cx)
+            YtmHybrid::global(cx)
                 .settings
                 .clone()
                 .update(cx, |settings, cx| settings.set_system_theme(reported, cx));
@@ -170,7 +170,7 @@ fn main() {
         memory::watch(cx);
 
         open_window(cx);
-        let session = Sonora::global(cx).session.clone();
+        let session = YtmHybrid::global(cx).session.clone();
         session.update(cx, |session, cx| session.restore(cx));
 
         // A cold "Open With" launch reaches Playback through the same batch a hot hand-off
@@ -222,7 +222,7 @@ fn follow(items: &[String], cx: &mut App) {
         router::navigate(destination, cx);
     }
     if !paths.is_empty() {
-        let playback = Sonora::global(cx).playback.clone();
+        let playback = YtmHybrid::global(cx).playback.clone();
         playback.update(cx, |playback, cx| playback.open_paths(paths, cx));
     }
 }
@@ -295,7 +295,7 @@ fn show_window(cx: &mut App) {
 }
 
 fn open_window(cx: &mut App) {
-    let Sonora {
+    let YtmHybrid {
         session,
         cover: _,
         drm: _,
@@ -314,7 +314,7 @@ fn open_window(cx: &mut App) {
         updates: _,
         usage: _,
         wake: _,
-    } = Sonora::global(cx);
+    } = YtmHybrid::global(cx);
     let (session, library, playback, queue) = (
         session.clone(),
         library.clone(),
@@ -330,7 +330,7 @@ fn open_window(cx: &mut App) {
             )
         });
 
-    let settings = Sonora::global(cx).settings.read(cx);
+    let settings = YtmHybrid::global(cx).settings.read(cx);
     let saver = settings.saver();
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     let decorations = settings.window_decorations();
@@ -366,7 +366,7 @@ fn open_window(cx: &mut App) {
             #[cfg(target_os = "windows")]
             set_corner_preference(
                 window,
-                Sonora::global(cx).settings.read(cx).window_rounding(),
+                YtmHybrid::global(cx).settings.read(cx).window_rounding(),
             );
             let handle = platform_handle(window);
             state::attach_remote(handle, cx);

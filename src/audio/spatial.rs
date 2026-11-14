@@ -1,67 +1,28 @@
 //! Spatial Audio / 3D Soundstage Core Processing Module.
 //!
-//! Provides real-time DSP pipelines for 2-channel stereo PCM audio streams:
-//!
-//! 1. `DolbyAtmosPassthrough`: Configures WASAPI stream flags (`AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM`
-//!    and spatial object metadata) so Windows routes audio through system-level Dolby Atmos for
-//!    Headphones, DTS Headphone:X, or Windows Sonic.
-//! 2. `CustomHRTF`: Low-latency binaural HRTF (Head-Related Transfer Function) spatializer algorithm
-//!    utilizing spherical head diffraction filtering, pinna notch cues, and sub-sample fractional
-//!    ITD (Interaural Time Difference) delay lines to widen the stereo soundstage outside the head.
-//! 3. `BinauralCrossfeed`: Frequency-dependent Bauer / Linkwitz crossfeed filter simulating physical
-//!    loudspeakers on IEMs (In-Ear Monitors) and headphones to eliminate extreme channel isolation fatigue.
-//!
-//! Processing guarantees:
-//! - Zero algorithmic buffer latency (sample-by-sample and block-level direct processing).
-//! - Click-free, pop-free transitions via equal-power crossfading (`CrossFader`) on dynamic mode switches.
-//! - Zero dynamic heap allocation in the audio rendering hot loop.
+//! Complementary bilinear `libbs2b` (Bauer Stereophonic-to-Binaural) crossfeed
+//! (`H_direct(z) + H_cross(z) == 1.0`), phase-coherent Mid/Side soundstage
+//! expansion, and sample-accurate 1-to-1 `rodio::Source` passthrough.
 
 use std::f32::consts::PI;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
-// ==============================================================================
-// WASAPI Stream Flags & Constants
-// ==============================================================================
-
-/// WASAPI stream flag instructing the Windows Audio Engine to automatically convert
-/// the client audio format to the engine mix format and route to spatial processing objects (SAPO).
-pub const AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM: u32 = 0x8000_0000;
-
-/// WASAPI stream flag specifying default quality sample rate conversion.
-pub const AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY: u32 = 0x0800_0000;
-
-/// WASAPI stream flag for event-driven audio buffer completion callbacks.
-pub const AUDCLNT_STREAMFLAGS_EVENTCALLBACK: u32 = 0x0004_0000;
-
-/// Default transition crossfade duration (35 ms ~ 1680 samples at 48 kHz).
-pub const DEFAULT_RAMP_DURATION: Duration = Duration::from_millis(35);
-
-/// Maximum delay buffer capacity in samples (~10.6 ms at 192 kHz, ~42 ms at 48 kHz).
-const MAX_DELAY_CAPACITY: usize = 2048;
+const MAX_DELAY_CAPACITY: usize = 4096;
+const DEFAULT_RAMP_DURATION: Duration = Duration::from_millis(35);
 
 // ==============================================================================
 // Error Handling
 // ==============================================================================
 
-/// Audio error type returned across the spatial audio pipeline.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AudioError {
-    /// Audio output device is unavailable or was disconnected.
     DeviceUnavailable(String),
-    /// Audio format (channel count or sample rate) is unsupported.
     UnsupportedFormat { channels: u16, sample_rate: u32 },
-    /// Initialization of WASAPI client or spatial audio object stream failed.
-    WasapiInitFailed(String),
-    /// System-level spatial audio is disabled or unsupported by the active endpoint.
-    SpatialAudioUnsupported(String),
-    /// Buffer underrun occurred during real-time rendering.
     BufferUnderflow,
-    /// Channel count does not match expected stereo pair.
     ChannelMismatch { expected: usize, found: usize },
-    /// An invalid DSP parameter was supplied.
     InvalidParameter(String),
-    /// Synchronization lock acquisition failure.
-    LockError(String),
 }
 
 impl std::fmt::Display for AudioError {
@@ -71,14 +32,11 @@ impl std::fmt::Display for AudioError {
             Self::UnsupportedFormat { channels, sample_rate } => {
                 write!(f, "Unsupported format: {channels} channels, {sample_rate} Hz")
             }
-            Self::WasapiInitFailed(msg) => write!(f, "WASAPI initialization failed: {msg}"),
-            Self::SpatialAudioUnsupported(msg) => write!(f, "Spatial audio unsupported: {msg}"),
             Self::BufferUnderflow => write!(f, "Audio buffer underflow"),
             Self::ChannelMismatch { expected, found } => {
                 write!(f, "Channel mismatch: expected {expected}, found {found}")
             }
             Self::InvalidParameter(msg) => write!(f, "Invalid parameter: {msg}"),
-            Self::LockError(msg) => write!(f, "Lock contention: {msg}"),
         }
     }
 }
@@ -89,522 +47,517 @@ impl std::error::Error for AudioError {}
 // Spatial Audio Modes
 // ==============================================================================
 
-/// Supported spatial audio modes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
+#[repr(u8)]
 pub enum SpatialMode {
-    /// System-level Dolby Atmos for Headphones / DTS Headphone:X / Windows Sonic via WASAPI flags.
     #[default]
-    DolbyAtmosPassthrough,
-    /// Low-latency binaural HRTF spatializer widening the stereo soundstage outside the listener's head.
-    CustomHRTF,
-    /// Bauer / Linkwitz frequency-dependent crossfeed filter for natural speaker simulation on headphones.
-    BinauralCrossfeed,
+    Off = 0,
+    /// Gentle Bauer bs2b (700 Hz / 6.0 dB) near-field studio monitor simulation.
+    Studio = 1,
+    /// Light bs2b crossfeed + phase-coherent Mid/Side stereo stage expansion.
+    WideStage = 2,
+    /// Wide stage + subtle warm damped early room reflections.
+    ConcertHall = 3,
 }
 
 impl SpatialMode {
-    /// List of all modes for UI selector population.
-    pub const ALL: [Self; 3] = [
-        Self::DolbyAtmosPassthrough,
-        Self::CustomHRTF,
-        Self::BinauralCrossfeed,
+    pub const ALL: [Self; 4] = [
+        Self::Off,
+        Self::Studio,
+        Self::WideStage,
+        Self::ConcertHall,
     ];
 
-    /// Canonical identifier string.
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Self::Studio,
+            2 => Self::WideStage,
+            3 => Self::ConcertHall,
+            _ => Self::Off,
+        }
+    }
+
     pub fn id(self) -> &'static str {
         match self {
-            Self::DolbyAtmosPassthrough => "dolby_atmos_passthrough",
-            Self::CustomHRTF => "custom_hrtf",
-            Self::BinauralCrossfeed => "binaural_crossfeed",
+            Self::Off => "off",
+            Self::Studio => "studio",
+            Self::WideStage => "wide_stage",
+            Self::ConcertHall => "concert_hall",
         }
     }
 
-    /// User-friendly display label.
     pub fn display_name(self) -> &'static str {
         match self {
-            Self::DolbyAtmosPassthrough => "Dolby Atmos Passthrough",
-            Self::CustomHRTF => "Custom HRTF (3D Soundstage)",
-            Self::BinauralCrossfeed => "Binaural Crossfeed (Speaker Sim)",
+            Self::Off => "Off",
+            Self::Studio => "Studio (Intimate)",
+            Self::WideStage => "Wide Stage",
+            Self::ConcertHall => "Concert Hall",
         }
     }
 
-    /// Explanatory description.
     pub fn description(self) -> &'static str {
         match self {
-            Self::DolbyAtmosPassthrough => {
-                "Enables Windows Spatial Audio routing (Dolby Atmos for Headphones / DTS Headphone:X)."
-            }
-            Self::CustomHRTF => {
-                "Binaural spherical head model and pinna notch cues projecting sound outside the skull."
-            }
-            Self::BinauralCrossfeed => {
-                "Bauer/Linkwitz frequency-dependent acoustic crossfeed simulating natural stereo speakers."
-            }
+            Self::Off => "Bit-exact bypass without any DSP processing.",
+            Self::Studio => "Bauer bs2b acoustic crossfeed simulating near-field studio monitors.",
+            Self::WideStage => "Expands stereo soundstage width while keeping vocals centered.",
+            Self::ConcertHall => "Adds subtle warm room early reflections for live concert depth.",
         }
     }
 
     pub fn from_id(id: &str) -> Option<Self> {
         match id {
-            "dolby_atmos_passthrough" => Some(Self::DolbyAtmosPassthrough),
-            "custom_hrtf" => Some(Self::CustomHRTF),
-            "binaural_crossfeed" => Some(Self::BinauralCrossfeed),
+            "off" => Some(Self::Off),
+            "studio" => Some(Self::Studio),
+            "wide_stage" => Some(Self::WideStage),
+            "concert_hall" => Some(Self::ConcertHall),
             _ => None,
         }
     }
 }
 
 // ==============================================================================
-// Biquad IIR Filter (Direct Form II Transposed)
+// Complementary First-Order Bauer Crossfeed (libbs2b Exact Topology)
 // ==============================================================================
 
-/// Numerically stable Direct Form II Transposed biquad filter.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Biquad {
-    b0: f32,
-    b1: f32,
-    b2: f32,
+#[derive(Clone, Copy, Debug)]
+struct Bs2bFilterPair {
+    dir_b0: f32,
+    dir_b1: f32,
+    cross_b0: f32,
+    cross_b1: f32,
     a1: f32,
-    a2: f32,
-    s1: f32,
-    s2: f32,
+    dir_x1: f32,
+    dir_y1: f32,
+    cross_x1: f32,
+    cross_y1: f32,
 }
 
-impl Biquad {
-    pub fn identity() -> Self {
-        Self {
-            b0: 1.0,
-            b1: 0.0,
-            b2: 0.0,
-            a1: 0.0,
-            a2: 0.0,
-            s1: 0.0,
-            s2: 0.0,
-        }
-    }
+impl Bs2bFilterPair {
+    fn new(cutoff_hz: f32, feed_db: f32, sample_rate: f32) -> Self {
+        let g_level = 10.0f32.powf(-feed_db.clamp(1.0, 15.0) / 20.0);
+        let d = 1.0 / (1.0 + g_level);
+        let c = 1.0 - d;
 
-    /// 1st-order low-pass filter (for Bauer acoustic crossfeed).
-    pub fn lowpass_1st_order(cutoff_hz: f32, sample_rate: f32) -> Self {
-        let omega = 2.0 * PI * cutoff_hz.clamp(10.0, sample_rate * 0.49) / sample_rate;
-        let alpha = omega / (1.0 + omega);
+        let fc = cutoff_hz.clamp(200.0, sample_rate * 0.25);
+        let k = (PI * fc / sample_rate).tan();
+        let denom = 1.0 + k;
 
         Self {
-            b0: alpha,
-            b1: alpha,
-            b2: 0.0,
-            a1: -(1.0 - alpha),
-            a2: 0.0,
-            s1: 0.0,
-            s2: 0.0,
-        }
-    }
-
-    /// 2nd-order Butterworth low-pass filter.
-    pub fn lowpass(cutoff_hz: f32, sample_rate: f32) -> Self {
-        let omega = 2.0 * PI * cutoff_hz.clamp(10.0, sample_rate * 0.49) / sample_rate;
-        let sn = omega.sin();
-        let cs = omega.cos();
-        let alpha = sn / (2.0 * std::f32::consts::FRAC_1_SQRT_2);
-
-        let a0 = 1.0 + alpha;
-        Self {
-            b0: ((1.0 - cs) * 0.5) / a0,
-            b1: (1.0 - cs) / a0,
-            b2: ((1.0 - cs) * 0.5) / a0,
-            a1: (-2.0 * cs) / a0,
-            a2: (1.0 - alpha) / a0,
-            s1: 0.0,
-            s2: 0.0,
-        }
-    }
-
-    /// Low-shelf filter for frequency-dependent crossfeed bass balancing.
-    pub fn lowshelf(frequency: f32, gain_db: f32, q: f32, sample_rate: f32) -> Self {
-        let a = 10.0f32.powf(gain_db / 40.0);
-        let omega = 2.0 * PI * frequency.clamp(10.0, sample_rate * 0.49) / sample_rate;
-        let sn = omega.sin();
-        let cs = omega.cos();
-        let alpha = sn / (2.0 * q.max(0.1));
-        let beta = 2.0 * a.sqrt() * alpha;
-
-        let a0 = (a + 1.0) + (a - 1.0) * cs + beta;
-        Self {
-            b0: (a * ((a + 1.0) - (a - 1.0) * cs + beta)) / a0,
-            b1: (2.0 * a * ((a - 1.0) - (a + 1.0) * cs)) / a0,
-            b2: (a * ((a + 1.0) - (a - 1.0) * cs - beta)) / a0,
-            a1: (-2.0 * ((a - 1.0) + (a + 1.0) * cs)) / a0,
-            a2: ((a + 1.0) + (a - 1.0) * cs - beta) / a0,
-            s1: 0.0,
-            s2: 0.0,
-        }
-    }
-
-    /// High-shelf filter for contralateral head shadow simulation.
-    pub fn highshelf(frequency: f32, gain_db: f32, q: f32, sample_rate: f32) -> Self {
-        let a = 10.0f32.powf(gain_db / 40.0);
-        let omega = 2.0 * PI * frequency.clamp(10.0, sample_rate * 0.49) / sample_rate;
-        let sn = omega.sin();
-        let cs = omega.cos();
-        let alpha = sn / (2.0 * q.max(0.1));
-        let beta = 2.0 * a.sqrt() * alpha;
-
-        let a0 = (a + 1.0) - (a - 1.0) * cs + beta;
-        Self {
-            b0: (a * ((a + 1.0) + (a - 1.0) * cs + beta)) / a0,
-            b1: (-2.0 * a * ((a - 1.0) + (a + 1.0) * cs)) / a0,
-            b2: (a * ((a + 1.0) + (a - 1.0) * cs - beta)) / a0,
-            a1: (2.0 * ((a - 1.0) - (a + 1.0) * cs)) / a0,
-            a2: ((a + 1.0) - (a - 1.0) * cs - beta) / a0,
-            s1: 0.0,
-            s2: 0.0,
-        }
-    }
-
-    /// Peaking / notch filter (for pinna concha spectral localization cues).
-    pub fn peaking(frequency: f32, gain_db: f32, q: f32, sample_rate: f32) -> Self {
-        let a = 10.0f32.powf(gain_db / 40.0);
-        let omega = 2.0 * PI * frequency.clamp(10.0, sample_rate * 0.49) / sample_rate;
-        let sn = omega.sin();
-        let cs = omega.cos();
-        let alpha = sn / (2.0 * q.max(0.1));
-
-        let a0 = 1.0 + alpha / a;
-        Self {
-            b0: (1.0 + alpha * a) / a0,
-            b1: (-2.0 * cs) / a0,
-            b2: (1.0 - alpha * a) / a0,
-            a1: (-2.0 * cs) / a0,
-            a2: (1.0 - alpha / a) / a0,
-            s1: 0.0,
-            s2: 0.0,
+            dir_b0: (1.0 + d * k) / denom,
+            dir_b1: (d * k - 1.0) / denom,
+            cross_b0: (c * k) / denom,
+            cross_b1: (c * k) / denom,
+            a1: (k - 1.0) / denom,
+            dir_x1: 0.0,
+            dir_y1: 0.0,
+            cross_x1: 0.0,
+            cross_y1: 0.0,
         }
     }
 
     #[inline(always)]
-    pub fn process(&mut self, x: f32) -> f32 {
-        let y = self.b0 * x + self.s1;
-        self.s1 = self.b1 * x - self.a1 * y + self.s2;
-        self.s2 = self.b2 * x - self.a2 * y;
+    fn process_direct(&mut self, x: f32) -> f32 {
+        let y = self.dir_b0 * x + self.dir_b1 * self.dir_x1 - self.a1 * self.dir_y1;
+        self.dir_x1 = x;
+        self.dir_y1 = y;
         y
     }
 
-    pub fn reset(&mut self) {
-        self.s1 = 0.0;
-        self.s2 = 0.0;
+    #[inline(always)]
+    fn process_cross(&mut self, x: f32) -> f32 {
+        let y = self.cross_b0 * x + self.cross_b1 * self.cross_x1 - self.a1 * self.cross_y1;
+        self.cross_x1 = x;
+        self.cross_y1 = y;
+        y
+    }
+
+    fn reset(&mut self) {
+        self.dir_x1 = 0.0;
+        self.dir_y1 = 0.0;
+        self.cross_x1 = 0.0;
+        self.cross_y1 = 0.0;
     }
 }
 
 // ==============================================================================
-// Fractional Delay Line
+// Zero-Allocation Stack Circular Delay Line
 // ==============================================================================
 
-/// Circular delay line with sub-sample linear interpolation.
 #[derive(Clone, Debug)]
-pub struct FractionalDelay {
-    buffer: Vec<f32>,
+struct FixedDelay {
+    buffer: [f32; MAX_DELAY_CAPACITY],
     write_pos: usize,
-    capacity: usize,
 }
 
-impl FractionalDelay {
-    pub fn new(capacity: usize) -> Self {
-        let cap = capacity.max(64);
+impl FixedDelay {
+    const fn new() -> Self {
         Self {
-            buffer: vec![0.0; cap],
+            buffer: [0.0; MAX_DELAY_CAPACITY],
             write_pos: 0,
-            capacity: cap,
         }
     }
 
     #[inline(always)]
-    pub fn push(&mut self, sample: f32) {
+    fn push(&mut self, sample: f32) {
         self.buffer[self.write_pos] = sample;
-        self.write_pos = (self.write_pos + 1) % self.capacity;
+        self.write_pos = (self.write_pos + 1) & (MAX_DELAY_CAPACITY - 1);
     }
 
     #[inline(always)]
-    pub fn read_delay(&self, delay_samples: f32) -> f32 {
-        let delay_clamped = delay_samples.clamp(0.0, (self.capacity - 2) as f32);
-        let d_floor = delay_clamped.floor() as usize;
-        let frac = delay_clamped - d_floor as f32;
+    fn read_linear(&self, delay_samples: f32) -> f32 {
+        let clamped = delay_samples.clamp(0.0, (MAX_DELAY_CAPACITY - 2) as f32);
+        let d0 = clamped.floor() as usize;
+        let frac = clamped - d0 as f32;
 
-        let idx0 = (self.write_pos + self.capacity - 1 - d_floor) % self.capacity;
-        let idx1 = (self.write_pos + self.capacity - 2 - d_floor) % self.capacity;
+        let idx0 = (self.write_pos + MAX_DELAY_CAPACITY - 1 - d0) & (MAX_DELAY_CAPACITY - 1);
+        let idx1 = (self.write_pos + MAX_DELAY_CAPACITY - 2 - d0) & (MAX_DELAY_CAPACITY - 1);
 
         let s0 = self.buffer[idx0];
         let s1 = self.buffer[idx1];
         s0 + frac * (s1 - s0)
     }
 
-    pub fn reset(&mut self) {
+    #[inline(always)]
+    fn read_int(&self, delay_samples: usize) -> f32 {
+        let d = delay_samples.min(MAX_DELAY_CAPACITY - 1);
+        let idx = (self.write_pos + MAX_DELAY_CAPACITY - 1 - d) & (MAX_DELAY_CAPACITY - 1);
+        self.buffer[idx]
+    }
+
+    fn reset(&mut self) {
         self.buffer.fill(0.0);
         self.write_pos = 0;
     }
 }
 
 // ==============================================================================
-// Mode Processors
+// Equal-Power Crossfader
 // ==============================================================================
 
-/// Dolby Atmos / DTS Passthrough Engine.
 #[derive(Clone, Debug)]
-pub struct DolbyAtmosPassthroughEngine {
-    headroom_gain: f32,
-    wasapi_flags: u32,
+pub struct CrossFader {
+    fade_samples: u32,
+    samples_remaining: u32,
 }
 
-impl DolbyAtmosPassthroughEngine {
-    pub fn new() -> Self {
-        // -1.5 dB headroom protects against inter-sample peaks during Dolby Atmos binaural rendering
+impl CrossFader {
+    pub fn new(ramp: Duration, sample_rate: u32) -> Self {
+        let samples = (ramp.as_secs_f64() * sample_rate as f64 * 2.0).round().max(1.0) as u32;
         Self {
-            headroom_gain: 10.0f32.powf(-1.5 / 20.0),
-            wasapi_flags: AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+            fade_samples: samples,
+            samples_remaining: 0,
         }
     }
 
-    pub fn wasapi_stream_flags(&self) -> u32 {
-        self.wasapi_flags
+    pub fn trigger(&mut self) {
+        self.samples_remaining = self.fade_samples;
     }
 
     #[inline(always)]
-    pub fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
-        (left * self.headroom_gain, right * self.headroom_gain)
+    pub fn next_gains(&mut self) -> (f32, f32) {
+        if self.samples_remaining == 0 {
+            return (0.0, 1.0);
+        }
+        let progress = 1.0 - (self.samples_remaining as f32 / self.fade_samples as f32);
+        self.samples_remaining -= 1;
+        let angle = progress * (PI * 0.5);
+        (angle.cos(), angle.sin())
     }
 }
 
-impl Default for DolbyAtmosPassthroughEngine {
+// ==============================================================================
+// Sample-by-Sample Stereo DSP Engine (1-to-1 Rodio Sync)
+// ==============================================================================
+
+struct SpatialDspCore {
+    sample_rate: f32,
+    bs2b_studio_l: Bs2bFilterPair,
+    bs2b_studio_r: Bs2bFilterPair,
+    bs2b_wide_l: Bs2bFilterPair,
+    bs2b_wide_r: Bs2bFilterPair,
+    delay_l: FixedDelay,
+    delay_r: FixedDelay,
+    last_cf_l: f32,
+    last_cf_r: f32,
+    er_lp_l: f32,
+    er_lp_r: f32,
+    last_mode: SpatialMode,
+    prev_mode: SpatialMode,
+    fader: CrossFader,
+    was_active: bool,
+}
+
+impl SpatialDspCore {
+    fn new(sample_rate: u32) -> Self {
+        let sr = sample_rate.max(8000) as f32;
+        Self {
+            sample_rate: sr,
+            // Studio: Gentle libbs2b (700 Hz, 6.0 dB feed) - transparent on IEMs
+            bs2b_studio_l: Bs2bFilterPair::new(700.0, 6.0, sr),
+            bs2b_studio_r: Bs2bFilterPair::new(700.0, 6.0, sr),
+            // Wide / Hall: Subtle crossfeed (750 Hz, 7.5 dB feed) to preserve stereo width
+            bs2b_wide_l: Bs2bFilterPair::new(750.0, 7.5, sr),
+            bs2b_wide_r: Bs2bFilterPair::new(750.0, 7.5, sr),
+            delay_l: FixedDelay::new(),
+            delay_r: FixedDelay::new(),
+            last_cf_l: 0.0,
+            last_cf_r: 0.0,
+            er_lp_l: 0.0,
+            er_lp_r: 0.0,
+            last_mode: SpatialMode::Off,
+            prev_mode: SpatialMode::Off,
+            fader: CrossFader::new(DEFAULT_RAMP_DURATION, sample_rate.max(8000)),
+            was_active: false,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.bs2b_studio_l.reset();
+        self.bs2b_studio_r.reset();
+        self.bs2b_wide_l.reset();
+        self.bs2b_wide_r.reset();
+        self.delay_l.reset();
+        self.delay_r.reset();
+        self.last_cf_l = 0.0;
+        self.last_cf_r = 0.0;
+        self.er_lp_l = 0.0;
+        self.er_lp_r = 0.0;
+        self.was_active = false;
+    }
+
+    #[inline]
+    fn render_channel(&mut self, sample: f32, is_right: bool, mode: SpatialMode) -> f32 {
+        let itd_samples = 0.00025 * self.sample_rate; // ~250 us interaural delay
+
+        match mode {
+            SpatialMode::Off => sample,
+
+            SpatialMode::Studio => {
+                if !is_right {
+                    let del_r = self.delay_r.read_linear(itd_samples);
+                    self.bs2b_studio_l.process_direct(sample) + self.bs2b_studio_l.process_cross(del_r)
+                } else {
+                    let del_l = self.delay_l.read_linear(itd_samples);
+                    self.bs2b_studio_r.process_direct(sample) + self.bs2b_studio_r.process_cross(del_l)
+                }
+            }
+
+            SpatialMode::WideStage => {
+                if !is_right {
+                    let del_r = self.delay_r.read_linear(itd_samples);
+                    let cf_l = self.bs2b_wide_l.process_direct(sample) + self.bs2b_wide_l.process_cross(del_r);
+                    self.last_cf_l = cf_l;
+                    let mid = (cf_l + self.last_cf_r) * 0.5;
+                    let side = (cf_l - self.last_cf_r) * 0.5 * 1.18;
+                    (mid + side) * 0.945
+                } else {
+                    let del_l = self.delay_l.read_linear(itd_samples);
+                    let cf_r = self.bs2b_wide_r.process_direct(sample) + self.bs2b_wide_r.process_cross(del_l);
+                    self.last_cf_r = cf_r;
+                    let mid = (self.last_cf_l + cf_r) * 0.5;
+                    let side = (self.last_cf_l - cf_r) * 0.5 * 1.18;
+                    (mid - side) * 0.945
+                }
+            }
+
+            SpatialMode::ConcertHall => {
+                let t1 = (0.014 * self.sample_rate) as usize;
+                let t2 = (0.021 * self.sample_rate) as usize;
+                let t3 = (0.031 * self.sample_rate) as usize;
+                let t4 = (0.041 * self.sample_rate) as usize;
+                let alpha = (2.0 * PI * 2800.0 / self.sample_rate).clamp(0.01, 0.99);
+                let wet = 0.055;
+
+                if !is_right {
+                    let del_r = self.delay_r.read_linear(itd_samples);
+                    let cf_l = self.bs2b_wide_l.process_direct(sample) + self.bs2b_wide_l.process_cross(del_r);
+                    self.last_cf_l = cf_l;
+                    let mid = (cf_l + self.last_cf_r) * 0.5;
+                    let side = (cf_l - self.last_cf_r) * 0.5 * 1.24;
+                    let stage_l = mid + side;
+
+                    let raw_er_l = 0.40 * self.delay_r.read_int(t1)
+                        + 0.28 * self.delay_l.read_int(t2)
+                        + 0.20 * self.delay_r.read_int(t3)
+                        + 0.12 * self.delay_l.read_int(t4);
+                    self.er_lp_l += alpha * (raw_er_l - self.er_lp_l);
+
+                    (stage_l + self.er_lp_l * wet) * 0.915
+                } else {
+                    let del_l = self.delay_l.read_linear(itd_samples);
+                    let cf_r = self.bs2b_wide_r.process_direct(sample) + self.bs2b_wide_r.process_cross(del_l);
+                    self.last_cf_r = cf_r;
+                    let mid = (self.last_cf_l + cf_r) * 0.5;
+                    let side = (self.last_cf_l - cf_r) * 0.5 * 1.24;
+                    let stage_r = mid - side;
+
+                    let raw_er_r = 0.40 * self.delay_l.read_int(t1)
+                        + 0.28 * self.delay_r.read_int(t2)
+                        + 0.20 * self.delay_l.read_int(t3)
+                        + 0.12 * self.delay_r.read_int(t4);
+                    self.er_lp_r += alpha * (raw_er_r - self.er_lp_r);
+
+                    (stage_r + self.er_lp_r * wet) * 0.915
+                }
+            }
+        }
+    }
+
+    #[inline]
+    fn process_sample(&mut self, sample: f32, is_right: bool, mode: SpatialMode) -> f32 {
+        self.was_active = true;
+
+        if mode != self.last_mode {
+            self.prev_mode = self.last_mode;
+            self.last_mode = mode;
+            self.fader.trigger();
+        }
+
+        if !is_right {
+            self.delay_l.push(sample);
+        } else {
+            self.delay_r.push(sample);
+        }
+
+        let (g_old, g_new) = self.fader.next_gains();
+        let new_out = self.render_channel(sample, is_right, mode);
+
+        if g_old > 0.0001 {
+            let old_out = self.render_channel(sample, is_right, self.prev_mode);
+            (old_out * g_old + new_out * g_new).clamp(-0.99, 0.99)
+        } else {
+            new_out.clamp(-0.99, 0.99)
+        }
+    }
+}
+
+// ==============================================================================
+// Thread-Safe Processor Handle & Rodio Source Wrapper
+// ==============================================================================
+
+struct SharedSpatialState {
+    enabled: AtomicBool,
+    mode: AtomicU8,
+}
+
+#[derive(Clone)]
+pub struct SpatialAudioProcessor {
+    state: Arc<SharedSpatialState>,
+}
+
+impl Default for SpatialAudioProcessor {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Custom HRTF 3D Soundstage Engine.
-#[derive(Clone, Debug)]
-pub struct CustomHrtfEngine {
-    sample_rate: f32,
-    soundstage_width: f32,
-    contra_filter_l: Biquad,
-    contra_filter_r: Biquad,
-    pinna_filter_l: Biquad,
-    pinna_filter_r: Biquad,
-    delay_l: FractionalDelay,
-    delay_r: FractionalDelay,
-    itd_samples: f32,
-}
-
-impl CustomHrtfEngine {
-    pub fn new(sample_rate: u32, soundstage_width: f32) -> Self {
-        let sr = sample_rate as f32;
-        let mut engine = Self {
-            sample_rate: sr,
-            soundstage_width: soundstage_width.clamp(0.5, 2.0),
-            contra_filter_l: Biquad::identity(),
-            contra_filter_r: Biquad::identity(),
-            pinna_filter_l: Biquad::identity(),
-            pinna_filter_r: Biquad::identity(),
-            delay_l: FractionalDelay::new(MAX_DELAY_CAPACITY),
-            delay_r: FractionalDelay::new(MAX_DELAY_CAPACITY),
-            itd_samples: 0.0,
-        };
-        engine.recompute();
-        engine
-    }
-
-    pub fn set_sample_rate(&mut self, sample_rate: u32) {
-        if self.sample_rate != sample_rate as f32 {
-            self.sample_rate = sample_rate as f32;
-            self.recompute();
-        }
-    }
-
-    pub fn set_width(&mut self, width: f32) {
-        self.soundstage_width = width.clamp(0.5, 2.0);
-        self.recompute();
-    }
-
-    fn recompute(&mut self) {
-        let sr = self.sample_rate;
-        // Woodworth formula for ~35 deg azimuth: ITD ~ 0.28 ms
-        let itd_sec = 0.00028 * self.soundstage_width;
-        self.itd_samples = (itd_sec * sr).clamp(1.0, (MAX_DELAY_CAPACITY - 4) as f32);
-
-        // Contralateral head shadow: -8.5 dB high shelf at 1800 Hz
-        let contra = Biquad::highshelf(1800.0, -8.5, 0.707, sr);
-        self.contra_filter_l = contra;
-        self.contra_filter_r = contra;
-
-        // Ipsilateral pinna notch cue: -6.0 dB notch at 6500 Hz, Q = 2.5
-        let pinna = Biquad::peaking(6500.0, -6.0, 2.5, sr);
-        self.pinna_filter_l = pinna;
-        self.pinna_filter_r = pinna;
-    }
-
-    #[inline(always)]
-    pub fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
-        self.delay_l.push(left);
-        self.delay_r.push(right);
-
-        let direct_l = self.pinna_filter_l.process(left);
-        let direct_r = self.pinna_filter_r.process(right);
-
-        let del_r = self.delay_r.read_delay(self.itd_samples);
-        let del_l = self.delay_l.read_delay(self.itd_samples);
-
-        let cross_to_l = self.contra_filter_l.process(del_r);
-        let cross_to_r = self.contra_filter_r.process(del_l);
-
-        let bin_l = direct_l + 0.55 * cross_to_l;
-        let bin_r = direct_r + 0.55 * cross_to_r;
-
-        // Mid-side spatial widening
-        let mid = (bin_l + bin_r) * 0.5;
-        let side = (bin_l - bin_r) * 0.5;
-        let width = self.soundstage_width.clamp(0.8, 1.6);
-        let out_l = (mid + side * width) * 0.82;
-        let out_r = (mid - side * width) * 0.82;
-
-        (out_l, out_r)
-    }
-
-    pub fn reset(&mut self) {
-        self.contra_filter_l.reset();
-        self.contra_filter_r.reset();
-        self.pinna_filter_l.reset();
-        self.pinna_filter_r.reset();
-        self.delay_l.reset();
-        self.delay_r.reset();
-    }
-}
-
-/// Binaural Crossfeed Engine (Bauer / Linkwitz).
-#[derive(Clone, Debug)]
-pub struct BinauralCrossfeedEngine {
-    sample_rate: f32,
-    crossfeed_amount: f32,
-    cross_filter_l: Biquad,
-    cross_filter_r: Biquad,
-    direct_filter_l: Biquad,
-    direct_filter_r: Biquad,
-    delay_l: FractionalDelay,
-    delay_r: FractionalDelay,
-    delay_samples: f32,
-}
-
-impl BinauralCrossfeedEngine {
-    pub fn new(sample_rate: u32, crossfeed_amount: f32) -> Self {
-        let sr = sample_rate as f32;
-        let mut engine = Self {
-            sample_rate: sr,
-            crossfeed_amount: crossfeed_amount.clamp(0.0, 1.0),
-            cross_filter_l: Biquad::identity(),
-            cross_filter_r: Biquad::identity(),
-            direct_filter_l: Biquad::identity(),
-            direct_filter_r: Biquad::identity(),
-            delay_l: FractionalDelay::new(MAX_DELAY_CAPACITY),
-            delay_r: FractionalDelay::new(MAX_DELAY_CAPACITY),
-            delay_samples: 0.0,
-        };
-        engine.recompute();
-        engine
-    }
-
-    pub fn set_sample_rate(&mut self, sample_rate: u32) {
-        if self.sample_rate != sample_rate as f32 {
-            self.sample_rate = sample_rate as f32;
-            self.recompute();
-        }
-    }
-
-    pub fn set_amount(&mut self, amount: f32) {
-        self.crossfeed_amount = amount.clamp(0.0, 1.0);
-        self.recompute();
-    }
-
-    fn recompute(&mut self) {
-        let sr = self.sample_rate;
-        let delay_sec = 0.00028;
-        self.delay_samples = (delay_sec * sr).clamp(1.0, (MAX_DELAY_CAPACITY - 4) as f32);
-
-        let lp = Biquad::lowpass_1st_order(700.0, sr);
-        self.cross_filter_l = lp;
-        self.cross_filter_r = lp;
-
-        let shelf = Biquad::lowshelf(700.0, 1.5, 0.707, sr);
-        self.direct_filter_l = shelf;
-        self.direct_filter_r = shelf;
-    }
-
-    #[inline(always)]
-    pub fn process_frame(&mut self, left: f32, right: f32) -> (f32, f32) {
-        self.delay_l.push(left);
-        self.delay_r.push(right);
-
-        let dir_l = self.direct_filter_l.process(left);
-        let dir_r = self.direct_filter_r.process(right);
-
-        let del_r = self.delay_r.read_delay(self.delay_samples);
-        let del_l = self.delay_l.read_delay(self.delay_samples);
-
-        let cross_l = self.cross_filter_l.process(del_r);
-        let cross_r = self.cross_filter_r.process(del_l);
-
-        let cross_gain = 0.58 * self.crossfeed_amount;
-        let norm = 1.0 / (1.0 + cross_gain * 0.45);
-
-        let out_l = (dir_l + cross_l * cross_gain) * norm;
-        let out_r = (dir_r + cross_r * cross_gain) * norm;
-
-        (out_l, out_r)
-    }
-
-    pub fn reset(&mut self) {
-        self.cross_filter_l.reset();
-        self.cross_filter_r.reset();
-        self.direct_filter_l.reset();
-        self.direct_filter_r.reset();
-        self.delay_l.reset();
-        self.delay_r.reset();
-    }
-}
-
-// ==============================================================================
-// Equal-Power Crossfader (Click & Pop Prevention)
-// ==============================================================================
-
-/// Equal-power sinusoidal crossfader ensuring continuous, click-free audio transitions.
-#[derive(Clone, Debug)]
-pub struct CrossFader {
-    fade_frames: u32,
-    frames_remaining: u32,
-}
-
-impl CrossFader {
-    pub fn new(ramp: Duration, sample_rate: u32) -> Self {
-        let frames = (ramp.as_secs_f64() * sample_rate as f64).round().max(1.0) as u32;
+impl SpatialAudioProcessor {
+    pub fn new() -> Self {
         Self {
-            fade_frames: frames,
-            frames_remaining: 0,
+            state: Arc::new(SharedSpatialState {
+                enabled: AtomicBool::new(false),
+                mode: AtomicU8::new(SpatialMode::Studio as u8),
+            }),
         }
     }
 
-    pub fn set_sample_rate(&mut self, ramp: Duration, sample_rate: u32) {
-        self.fade_frames = (ramp.as_secs_f64() * sample_rate as f64).round().max(1.0) as u32;
+    pub fn set_enabled(&self, enabled: bool) {
+        self.state.enabled.store(enabled, Ordering::Release);
     }
 
-    pub fn trigger(&mut self) {
-        self.frames_remaining = self.fade_frames;
+    pub fn is_enabled(&self) -> bool {
+        self.state.enabled.load(Ordering::Acquire)
     }
 
-    pub fn is_fading(&self) -> bool {
-        self.frames_remaining > 0
+    pub fn set_mode(&self, mode: SpatialMode) {
+        self.state.mode.store(mode as u8, Ordering::Release);
     }
 
-    #[inline(always)]
-    pub fn next_gains(&mut self) -> (f32, f32) {
-        if self.frames_remaining == 0 {
-            return (0.0, 1.0);
+    pub fn mode(&self) -> SpatialMode {
+        SpatialMode::from_u8(self.state.mode.load(Ordering::Acquire))
+    }
+
+    #[inline]
+    pub fn active_mode(&self) -> SpatialMode {
+        if !self.is_enabled() {
+            SpatialMode::Off
+        } else {
+            self.mode()
         }
-        let progress = 1.0 - (self.frames_remaining as f32 / self.fade_frames as f32);
-        self.frames_remaining -= 1;
-        let angle = progress * (PI * 0.5);
-        (angle.cos(), angle.sin())
+    }
+}
+
+pub struct SpatialSource<I> {
+    inner: I,
+    processor: SpatialAudioProcessor,
+    core: SpatialDspCore,
+    channels: u16,
+    channel_idx: u16,
+}
+
+impl<I> SpatialSource<I>
+where
+    I: rodio::Source<Item = f32>,
+{
+    pub fn new(inner: I, processor: SpatialAudioProcessor) -> Self {
+        let channels = inner.channels();
+        let sample_rate = inner.sample_rate();
+        Self {
+            inner,
+            processor,
+            core: SpatialDspCore::new(sample_rate),
+            channels,
+            channel_idx: 0,
+        }
+    }
+}
+
+impl<I> Iterator for SpatialSource<I>
+where
+    I: rodio::Source<Item = f32>,
+{
+    type Item = f32;
+
+    #[inline]
+    fn next(&mut self) -> Option<f32> {
+        let sample = self.inner.next()?;
+        let is_right = self.channel_idx == 1;
+        self.channel_idx = if self.channels > 0 {
+            (self.channel_idx + 1) % self.channels
+        } else {
+            0
+        };
+
+        let mode = self.processor.active_mode();
+        if self.channels != 2 || mode == SpatialMode::Off {
+            if self.core.was_active {
+                self.core.reset();
+                self.core.last_mode = SpatialMode::Off;
+            }
+            return Some(sample);
+        }
+
+        Some(self.core.process_sample(sample, is_right, mode))
+    }
+}
+
+impl<I> rodio::Source for SpatialSource<I>
+where
+    I: rodio::Source<Item = f32>,
+{
+    fn current_frame_len(&self) -> Option<usize> {
+        self.inner.current_frame_len()
+    }
+
+    fn channels(&self) -> u16 {
+        self.channels
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.inner.sample_rate()
+    }
+
+    fn total_duration(&self) -> Option<Duration> {
+        self.inner.total_duration()
     }
 }

@@ -24,7 +24,7 @@ use router::{Destination, NavEntry, Screen, SettingsTab, navigate};
 use state::{
     AppSettings, CdmState, DiscordName, Drm, Failure, FullscreenControlsAutohide, Io,
     LYRICS_SOURCES, Playback, SYSTEM_FONT, Scan, ScrobbleState, Scrobbling, Session, SessionState,
-    Sleep, Sonora,
+    Sleep, YtmHybrid,
 };
 use ui::{ActiveTheme as _, Deck, LEADING, Scrollbar, Scroller, eyebrow, snapped};
 use ui::{
@@ -77,6 +77,7 @@ const MOTION: &str = "motion";
 const PACE: &str = "pace";
 const SAVER: &str = "saver";
 const SLEEP: &str = "sleep";
+const AUDIO_DEVICE: &str = "audio-device";
 const EQUALIZER_PRESETS: &str = "equalizer-presets";
 const SPATIAL_AUDIO_MODE: &str = "spatial-audio-mode";
 // the step a dragged band snaps to, in decibels
@@ -173,6 +174,7 @@ enum Slot {
     ))]
     WindowRounding,
     AdaptiveMenu,
+    AudioDevice,
     Normalisation,
     Gapless,
     Sleep,
@@ -321,6 +323,8 @@ pub struct SettingsView {
     /// One slider per equalizer band, lowest first.
     bands: Vec<ScrubberState>,
     pending_sleep: Option<Option<Sleep>>,
+    pending_audio_device: Option<(Option<String>, String)>,
+    cached_audio_devices: RefCell<Option<Vec<state::OutputDeviceInfo>>>,
     popovers: Popovers,
     server: Entity<Input>,
     username: Entity<Input>,
@@ -362,9 +366,9 @@ impl SettingsView {
         playback: Entity<Playback>,
         cx: &mut Context<Self>,
     ) -> Self {
-        let settings = Sonora::global(cx).settings.clone();
-        let scrobbling = Sonora::global(cx).scrobbling.clone();
-        let drm = Sonora::global(cx).drm.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
+        let scrobbling = YtmHybrid::global(cx).scrobbling.clone();
+        let drm = YtmHybrid::global(cx).drm.clone();
         cx.observe(&drm, |_, _, cx| cx.notify()).detach();
         cx.observe(&session, |_, _, cx| cx.notify()).detach();
         cx.observe(&scrobbling, |_, _, cx| cx.notify()).detach();
@@ -425,6 +429,8 @@ impl SettingsView {
                 .map(|band| ScrubberState::new(format!("equalizer-band-{band}")))
                 .collect(),
             pending_sleep: None,
+            pending_audio_device: None,
+            cached_audio_devices: RefCell::new(None),
             popovers: Popovers::default(),
             server: cx.new(|cx| Input::new("login-server-hint", cx)),
             username: cx.new(|cx| Input::new("login-username-hint", cx)),
@@ -618,6 +624,7 @@ impl SettingsView {
             SettingsTab::Playback => {
                 let mut slots = vec![
                     Slot::Title("settings-tab-general"),
+                    Slot::AudioDevice,
                     Slot::Normalisation,
                     Slot::Gapless,
                     Slot::Sleep,
@@ -781,6 +788,10 @@ impl SettingsView {
             Slot::AdaptiveMenu => (
                 t!("settings-adaptive-menu"),
                 t!("settings-adaptive-menu-detail"),
+            ),
+            Slot::AudioDevice => (
+                "Ses Çıkış Aygıtı".into(),
+                "Çalma için kullanılacak ses kartı veya DAC/kulaklık çıkışını seçin".into(),
             ),
             Slot::Normalisation => (
                 t!("settings-normalisation"),
@@ -1010,6 +1021,7 @@ impl SettingsView {
             ))]
             Slot::WindowRounding => self.window_rounding_row(cx).element,
             Slot::AdaptiveMenu => self.adaptive_menu_row(cx).element,
+            Slot::AudioDevice => self.audio_device_row(cx).element,
             Slot::Normalisation => self.playback_row(cx).element,
             Slot::Gapless => self.gapless_row(cx).element,
             Slot::Sleep => self.sleep_row(cx).element,
@@ -2193,6 +2205,112 @@ impl SettingsView {
         )
     }
 
+    fn audio_device_row(&self, cx: &mut Context<Self>) -> Setting {
+        let theme = *cx.theme();
+        let muted = theme.muted_foreground;
+        let small = theme.text(Text::Small);
+        let saved_id = self.settings.read(cx).audio_device().map(str::to_owned);
+        let devices =
+            if self.popovers.shows(AUDIO_DEVICE) || self.cached_audio_devices.borrow().is_none() {
+                let fresh = state::output_devices();
+                *self.cached_audio_devices.borrow_mut() = Some(fresh.clone());
+                fresh
+            } else {
+                self.cached_audio_devices.borrow().clone().unwrap_or_default()
+            };
+
+        let current_label: SharedString = match &saved_id {
+            None => "Sistem Varsayılanı".into(),
+            Some(id) => devices
+                .iter()
+                .find(|dev| &dev.id == id)
+                .map(|dev| SharedString::from(dev.name.clone()))
+                .unwrap_or_else(|| SharedString::from(format!("{id} (Bağlı Değil)"))),
+        };
+
+        let saved_for_default = saved_id.clone();
+        let default_item = MenuItem::new("audio-device-default", "Sistem Varsayılanı")
+            .selected(saved_id.is_none())
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.popovers.close();
+                if saved_for_default.is_some() {
+                    this.pending_audio_device = Some((None, "Sistem Varsayılanı".to_owned()));
+                    cx.notify();
+                }
+            }));
+
+        let device_items = devices.into_iter().map(|dev| {
+            let is_selected = saved_id.as_deref() == Some(dev.id.as_str());
+            let label: SharedString = match dev.is_default {
+                true => format!("{} (Varsayılan)", dev.name).into(),
+                false => dev.name.clone().into(),
+            };
+            let dev_id = dev.id.clone();
+            let dev_name = dev.name.clone();
+            MenuItem::new(SharedString::from(format!("audio-device-{}", dev.id)), label)
+                .selected(is_selected)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.popovers.close();
+                    if !is_selected {
+                        this.pending_audio_device = Some((Some(dev_id.clone()), dev_name.clone()));
+                        cx.notify();
+                    }
+                }))
+        });
+
+        let picker = Picker::new(AUDIO_DEVICE, &self.popovers, current_label)
+            .width(Picker::WIDE)
+            .items(std::iter::once(default_item).chain(device_items));
+
+        self.row(
+            "Ses Çıkış Aygıtı".into(),
+            "Çalma için kullanılacak ses kartı veya DAC/kulaklık çıkışını seçin".into(),
+            muted,
+            small,
+            picker.into_any_element(),
+        )
+    }
+
+    fn audio_device_modal(
+        &self,
+        target_id: Option<String>,
+        device_name: String,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        Modal::new("settings-audio-device-prompt", "Ses Çıkış Aygıtını Değiştir")
+            .w(px(460.))
+            .detail(format!(
+                "\"{device_name}\" çıkışına geçmek ve ses motorunu bu aygıta kilitlemek için uygulamanın yeniden başlatılması gerekiyor."
+            ))
+            .action(
+                Button::new("settings-audio-device-cancel")
+                    .ghost()
+                    .label("İptal")
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.pending_audio_device = None;
+                        cx.notify();
+                    })),
+            )
+            .action(
+                Button::new("settings-audio-device-restart")
+                    .primary()
+                    .label("Yeniden Başlat")
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let chosen = target_id.clone();
+                        this.pending_audio_device = None;
+                        this.settings.update(cx, |settings, cx| {
+                            settings.set_audio_device(chosen.clone(), cx);
+                        });
+                        music::audio::set_preferred_device(chosen);
+                        restart_application(cx);
+                    })),
+            )
+            .on_dismiss(cx.listener(|this, _, _, cx| {
+                this.pending_audio_device = None;
+                cx.notify();
+            }))
+    }
+
     fn playback_row(&self, cx: &mut Context<Self>) -> Setting {
         let theme = *cx.theme();
         let muted = theme.muted_foreground;
@@ -2473,8 +2591,8 @@ impl SettingsView {
             MenuItem::new(mode.id(), SharedString::from(mode.display_name()))
                 .selected(chosen == mode)
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_spatial_audio_mode(mode, cx)
+                    this.playback.update(cx, |playback, cx| {
+                        playback.set_spatial_audio_mode(mode, cx)
                     });
                     cx.notify();
                 }))
@@ -2957,8 +3075,8 @@ impl SettingsView {
         .sticky()
         .item(
             MenuItem::new(
-                "discord-button-provider",
-                t!("settings-discord-name-provider"),
+                "discord-button-ytm-hybrid",
+                SharedString::from("YTM Hybrid"),
             )
             .selected(provider)
             .on_click(cx.listener(move |this, _, _, cx| {
@@ -2969,14 +3087,17 @@ impl SettingsView {
             })),
         )
         .item(
-            MenuItem::new("discord-button-ytm-hybrid", t!("settings-discord-name-YTM Hybrid"))
-                .selected(ytm_hybrid)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_discord_ytm_hybrid_button(!ytm_hybrid, cx)
-                    });
-                    cx.notify();
-                })),
+            MenuItem::new(
+                "discord-button-ytm-hybrid",
+                t!("settings-discord-name-YTM Hybrid"),
+            )
+            .selected(ytm_hybrid)
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.settings.update(cx, |settings, cx| {
+                    settings.set_discord_ytm_hybrid_button(!ytm_hybrid, cx)
+                });
+                cx.notify();
+            })),
         );
 
         self.row(
@@ -3255,14 +3376,14 @@ impl SettingsView {
 
     fn rescan_local_folder(&mut self, cx: &mut Context<Self>) {
         Scan::global(cx).update(cx, |scan, _| scan.asked());
-        Sonora::global(cx)
+        YtmHybrid::global(cx)
             .library
             .clone()
             .update(cx, |library, cx| library.rescan_local(true, cx));
     }
 
     fn remove_local_folder(&mut self, path: String, cx: &mut Context<Self>) {
-        Sonora::global(cx)
+        YtmHybrid::global(cx)
             .library
             .clone()
             .update(cx, |library, cx| {
@@ -3794,6 +3915,11 @@ impl SettingsView {
     /// Closes the dialog that is up, topmost first, the way clicking outside it does. A
     /// prompt a sign-in raised takes the sign-in down with it.
     fn escape(&mut self, cx: &mut Context<Self>) {
+        if self.pending_audio_device.is_some() {
+            self.pending_audio_device = None;
+            cx.notify();
+            return;
+        }
         if self.credentials_for.is_some() {
             return self.abandon_credentials(cx);
         }
@@ -4459,6 +4585,14 @@ fn open_path(path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+fn restart_application(cx: &mut App) {
+    if let Ok(exe) = std::env::current_exe() {
+        let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+        let _ = Command::new(exe).args(args).spawn();
+    }
+    cx.quit();
+}
+
 // YTM Hybrid: impl Render for DraggedSource removed
 
 impl Render for SettingsView {
@@ -4472,9 +4606,14 @@ impl Render for SettingsView {
             self.loading_fonts = true;
             let text_system = cx.text_system().clone();
             let io = Io::global(cx);
-            self.font_task = Some(cx.spawn(async move |_this, _cx| {
-                let _names = io.spawn_blocking(move || usable_fonts(text_system)).await;
-                // YTM Hybrid: Font loading simplified - removed dynamic update logic
+            self.font_task = Some(cx.spawn(async move |this, cx| {
+                if let Ok(names) = io.spawn_blocking(move || usable_fonts(text_system)).await {
+                    let _ = this.update(cx, |this, cx| {
+                        this.installed = Some(names);
+                        this.loading_fonts = false;
+                        cx.notify();
+                    });
+                }
             }));
         }
 
@@ -4525,7 +4664,10 @@ impl Render for SettingsView {
         let sign_in_for = self.sign_in_for.filter(|_| !taken);
 
         // a dialog takes the key focus, since escape only reaches the page from inside it
-        let dialog = taken || sign_in_for.is_some() || self.scrobble_prompt.is_some();
+        let dialog = taken
+            || sign_in_for.is_some()
+            || self.scrobble_prompt.is_some()
+            || self.pending_audio_device.is_some();
         match (dialog, self.grabbed) {
             (true, false) => {
                 window.focus(&self.focus, cx);
@@ -4609,6 +4751,15 @@ impl Render for SettingsView {
             .when_some(sign_in_for, |this, (slug, provider)| {
                 this.child(self.sign_in_prompt(slug, provider, cx).into_any_element())
             })
+            .when_some(
+                self.pending_audio_device.clone(),
+                |this, (target_id, device_name)| {
+                    this.child(
+                        self.audio_device_modal(target_id, device_name, cx)
+                            .into_any_element(),
+                    )
+                },
+            )
     }
 }
 

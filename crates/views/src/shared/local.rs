@@ -1,6 +1,6 @@
 use gpui::{App, ElementId, PathPromptOptions};
 use i18n::t;
-use state::Sonora;
+use state::YtmHybrid;
 use ui::{Button, Vacancy};
 
 pub(crate) fn choose_button(id: impl Into<ElementId>) -> Button {
@@ -22,7 +22,7 @@ pub(crate) fn choose_folder(cx: &mut App) {
         multiple: true,
         prompt: None,
     });
-    let library = Sonora::global(cx).library.clone();
+    let library = YtmHybrid::global(cx).library.clone();
     cx.spawn(async move |cx| {
         let Ok(Ok(Some(paths))) = receiver.await else {
             return;

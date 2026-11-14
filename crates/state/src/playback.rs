@@ -2137,6 +2137,27 @@ impl Playback {
         self.spatial.set_enabled(on);
         self.settings
             .update(cx, |settings, cx| settings.set_spatial_audio(on, cx));
+
+        if on && self.spatial.mode() == music::spatial::SpatialMode::Off {
+            self.set_spatial_audio_mode(music::spatial::SpatialMode::Studio, cx);
+            return;
+        }
+        cx.notify();
+    }
+
+    pub fn spatial_audio_mode(&self) -> music::spatial::SpatialMode {
+        self.spatial.mode()
+    }
+
+    pub fn set_spatial_audio_mode(&mut self, mode: music::spatial::SpatialMode, cx: &mut Context<Self>) {
+        self.spatial.set_mode(mode);
+        self.settings
+            .update(cx, |settings, cx| settings.set_spatial_audio_mode(mode, cx));
+
+        if mode == music::spatial::SpatialMode::Off && self.spatial.is_enabled() {
+            self.set_spatial_audio(false, cx);
+            return;
+        }
         cx.notify();
     }
 
@@ -2259,6 +2280,7 @@ impl Playback {
             position_interval: POSITION_INTERVAL,
             gain: gain(self.level),
             equalizer: self.equalizer.clone(),
+            spatial: self.spatial.clone(),
         };
         let (engine, events) = playback.start(config);
 
@@ -2281,6 +2303,7 @@ impl Playback {
             position_interval: POSITION_INTERVAL,
             gain: gain(self.level),
             equalizer: self.equalizer.clone(),
+            spatial: self.spatial.clone(),
         };
         let (engine, events) = playback.start(config);
 

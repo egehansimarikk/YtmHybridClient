@@ -656,6 +656,18 @@ toast-track-unplayable = { $name } çalınamadı
 toast-library-add-failed = { $name } kitaplığına eklenemedi
 toast-library-remove-failed = { $name } kitaplığından çıkarılamadı
 
+# audio device
+settings-audio-device = Çıkış Cihazı
+settings-audio-device-detail = Çalma için kullanılacak ses cihazını seçin
+settings-audio-device-default = Sistem varsayılanı
+
+# spatial audio
+settings-group-spatial-audio = Uzamsal Ses
+settings-spatial-audio = Uzamsal Ses
+settings-spatial-audio-detail = 3B ses sahnesini ve kulaklık akustiğini etkinleştir
+settings-spatial-audio-mode = Akustik Sahne Modu
+settings-spatial-audio-mode-detail = Kulaklık için 3B sahne genişliği ve oda akustiği profilini seçin
+
 # lyrics
 lyrics-title = Şarkı sözleri
 lyrics-idle = Sözlerini görmek için bir şey çal

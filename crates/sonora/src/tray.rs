@@ -11,7 +11,7 @@ use gpui::http_client::{AsyncBody, HttpClient};
 use gpui::{App, AppContext as _, Context, Entity, Global, SharedString, Task};
 use i18n::t;
 use router::Destination;
-use state::{Outcome, PlaybackState, Repeat, Sonora, Toasts};
+use state::{Outcome, PlaybackState, Repeat, YtmHybrid, Toasts};
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 
 #[cfg(any(target_os = "macos", windows))]
@@ -129,7 +129,7 @@ impl Tray {
                     }
                     Event::Quit => cx.quit(),
                     Event::Toggle | Event::Previous | Event::Next | Event::Repeat => {
-                        let playback = Sonora::global(cx).playback.clone();
+                        let playback = YtmHybrid::global(cx).playback.clone();
                         playback.update(cx, |playback, cx| match event {
                             Event::Toggle => playback.toggle_play(cx),
                             Event::Previous => playback.previous(cx),
@@ -138,21 +138,21 @@ impl Tray {
                         });
                     }
                     Event::Shuffle => {
-                        let queue = Sonora::global(cx).queue.clone();
+                        let queue = YtmHybrid::global(cx).queue.clone();
                         queue.update(cx, |queue, cx| queue.toggle_shuffle(cx));
                     }
                 });
             }
         });
 
-        let playback = Sonora::global(cx).playback.clone();
+        let playback = YtmHybrid::global(cx).playback.clone();
         cx.observe(&playback, |this, _, cx| this.publish(cx))
             .detach();
-        let queue = Sonora::global(cx).queue.clone();
+        let queue = YtmHybrid::global(cx).queue.clone();
         cx.observe(&queue, |this, _, cx| this.publish(cx)).detach();
         // only `place` here: settings notifies on every window move, and rebuilding `Shown`
         // allocates the caption and clones the cover each time
-        let settings = Sonora::global(cx).settings.clone();
+        let settings = YtmHybrid::global(cx).settings.clone();
         cx.observe(&settings, |this, _, cx| this.place(cx)).detach();
 
         let shown = shown(None, cx);
@@ -175,7 +175,7 @@ impl Tray {
     /// Puts the icon in the tray, or takes it out, following `tray_icon` alone. An icon that cannot
     /// be placed turns `tray_icon` off and says so.
     fn place(&mut self, cx: &mut Context<Self>) {
-        let placed = Sonora::global(cx).settings.read(cx).tray_icon();
+        let placed = YtmHybrid::global(cx).settings.read(cx).tray_icon();
         if placed == self.placed {
             return;
         }
@@ -183,7 +183,7 @@ impl Tray {
             log::warn!("tray: cannot place the tray icon: {error:#}");
             if placed {
                 Toasts::show(Outcome::Failed, "toast-tray-unavailable", cx);
-                let settings = Sonora::global(cx).settings.clone();
+                let settings = YtmHybrid::global(cx).settings.clone();
                 settings.update(cx, |settings, cx| settings.set_tray_icon(false, cx));
                 return;
             }
@@ -216,7 +216,7 @@ impl Tray {
     /// Starts loading the cover of the track that is playing now. Dropping the task cancels the
     /// load for the track that was playing before, so a run of skips only draws the last cover.
     fn follow(&mut self, cx: &mut Context<Self>) {
-        let cover = Sonora::global(cx)
+        let cover = YtmHybrid::global(cx)
             .playback
             .read(cx)
             .track()
@@ -253,7 +253,7 @@ impl Tray {
 /// Opens the song page of whatever is playing. A track without an id is not an error: the caption
 /// row is only enabled when there is one.
 fn open(cx: &mut App) {
-    let playing = Sonora::global(cx).playback.read(cx).track();
+    let playing = YtmHybrid::global(cx).playback.read(cx).track();
     let Some(id) = playing.and_then(|track| track.id.clone()) else {
         return;
     };
@@ -303,7 +303,7 @@ async fn fetch(http: &Arc<dyn HttpClient>, url: &str) -> Result<Vec<u8>> {
 }
 
 fn shown(artwork: Option<Arc<Art>>, cx: &App) -> Shown {
-    let playback = Sonora::global(cx).playback.read(cx);
+    let playback = YtmHybrid::global(cx).playback.read(cx);
     let playing = matches!(
         playback.state(),
         PlaybackState::Playing | PlaybackState::Loading
@@ -319,7 +319,7 @@ fn shown(artwork: Option<Arc<Art>>, cx: &App) -> Shown {
         None => t!("player-nothing-playing").to_string(),
     };
     let song = playback.track().is_some_and(|track| track.id.is_some());
-    let shuffle_on = Sonora::global(cx).queue.read(cx).shuffle();
+    let shuffle_on = YtmHybrid::global(cx).queue.read(cx).shuffle();
     let repeat_on = playback.repeat() != Repeat::Off;
     Shown {
         artwork,
