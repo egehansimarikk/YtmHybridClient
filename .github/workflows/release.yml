@@ -142,11 +142,11 @@ jobs:
               throw "package-windows.ps1 bulunamadı!"
           }
 
-      - name: Compile Inno Setup Installer (.exe)
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-        with:
+      - - name: Compile Inno Setup Installer (.exe)
+          uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+          with:
           path: scripts/windows/ytmhybrid.iss
-          options: /DSourcePath=target/release /DAppVersion=0.4.3 /DOutputDir=dist
+          options: /DSourcePath=..\..\target\release /DAppVersion=0.4.3 /DOutputDir=dist
 
       - name: Copy install-msix.bat to dist
         shell: pwsh
