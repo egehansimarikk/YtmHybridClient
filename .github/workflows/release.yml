@@ -211,6 +211,7 @@ jobs:
 
       - name: Build release binary & create DMG
         run: |
+          cargo build --release --package ytm-hybrid
           if [ -f "./packaging/macos/build-dmg.sh" ]; then
             chmod +x ./packaging/macos/build-dmg.sh
             ./packaging/macos/build-dmg.sh
