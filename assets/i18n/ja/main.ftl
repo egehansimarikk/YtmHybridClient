@@ -683,3 +683,30 @@ nav-pins-alphabetical = 名前順
 nav-pins-kind = 種類別
 nav-show-full-library = ライブラリ全体を表示
 nav-return-top = 先頭に戻る
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = 出力デバイス
+settings-audio-device-detail = 再生に使用するサウンドカードまたはDAC/ヘッドホン出力を選択します
+settings-audio-device-default = システム既定
+settings-audio-device-system-default = { $name } (既定)
+settings-audio-device-disconnected = { $id } (未接続)
+settings-audio-device-modal-title = 音声出力デバイスの変更
+settings-audio-device-modal-detail = 「{ $device }」に切り替えてオーディオエンジンをこのデバイスに固定するには、アプリの再起動が必要です。
+settings-audio-device-modal-restart = 再起動
+
+# spatial audio
+settings-group-spatial-audio = 空間オーディオ
+settings-spatial-audio = 空間オーディオ
+settings-spatial-audio-detail = 3Dサウンドステージとヘッドホン音響処理を有効にする
+settings-spatial-audio-mode = 音響ステージモード
+settings-spatial-audio-mode-detail = ヘッドホン用の3D音場の広さとルーム音響プロファイルを選択します
+settings-spatial-mode-off = オフ
+settings-spatial-mode-subtle = ナチュラル (Meier)
+settings-spatial-mode-studio = スタジオ (モニター)
+settings-spatial-mode-front-stage = フロントステージ (HRTF)
+settings-spatial-mode-wide-stage = 3Dサラウンド (ワイド)
+settings-spatial-mode-concert-hall = 3Dコンサートホール

@@ -846,3 +846,30 @@ trouble-offline-detail = Kontrollo lidhjen e internetit dhe provo përsëri.
 trouble-not-loaded = Nuk mund të ngarkohej
 trouble-retry = Provo përsëri
 toast-offline = Pa lidhje. Asgjë nuk do të transmetohet derisa të kthehet.
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = Pajisja dalëse
+settings-audio-device-detail = Zgjidhni kartën e zërit ose daljen DAC/kufje për luajtje
+settings-audio-device-default = E parazgjedhur e sistemit
+settings-audio-device-system-default = { $name } (E parazgjedhur)
+settings-audio-device-disconnected = { $id } (E shkëputur)
+settings-audio-device-modal-title = Ndrysho pajisjen dalëse të audios
+settings-audio-device-modal-detail = Aplikacioni duhet të riniset për të kaluar te "{ $device }" dhe për të lidhur motorin e audios me këtë pajisje.
+settings-audio-device-modal-restart = Rinise
+
+# spatial audio
+settings-group-spatial-audio = Audio hapësinore
+settings-spatial-audio = Audio hapësinore
+settings-spatial-audio-detail = Aktivizo skenën zanore 3D dhe akustikën e kufjeve
+settings-spatial-audio-mode = Modaliteti i skenës akustike
+settings-spatial-audio-mode-detail = Zgjidhni gjerësinë e skenës 3D dhe profilin akustik të dhomës për kufje
+settings-spatial-audio-off = Joaktiv
+settings-spatial-audio-subtle = E lehtë (Meier)
+settings-spatial-audio-studio = Studio (Monitorë)
+settings-spatial-audio-front-stage = Skena e përparme (HRTF)
+settings-spatial-audio-wide-stage = 3D Surround (E gjerë)
+settings-spatial-audio-concert-hall = Sallë koncertesh 3D

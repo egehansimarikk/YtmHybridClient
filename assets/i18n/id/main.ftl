@@ -726,3 +726,30 @@ nav-pins-alphabetical = Berdasarkan abjad
 nav-pins-kind = Berdasarkan jenis
 nav-show-full-library = Tampilkan seluruh koleksi
 nav-return-top = Kembali ke atas
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = Perangkat keluaran
+settings-audio-device-detail = Pilih kartu suara atau keluaran DAC/headphone untuk pemutaran
+settings-audio-device-default = Default sistem
+settings-audio-device-system-default = { $name } (Default)
+settings-audio-device-disconnected = { $id } (Terputus)
+settings-audio-device-modal-title = Ubah Perangkat Keluaran Audio
+settings-audio-device-modal-detail = Aplikasi perlu dimulai ulang untuk beralih ke "{ $device }" dan mengunci mesin audio ke perangkat ini.
+settings-audio-device-modal-restart = Mulai ulang
+
+# spatial audio
+settings-group-spatial-audio = Audio Spasial
+settings-spatial-audio = Audio Spasial
+settings-spatial-audio-detail = Aktifkan pemrosesan panggung suara 3D dan akustik headphone
+settings-spatial-audio-mode = Mode Panggung Akustik
+settings-spatial-audio-mode-detail = Pilih lebar panggung 3D dan profil akustik ruangan untuk headphone
+settings-spatial-audio-off = Mati
+settings-spatial-audio-subtle = Halus (Meier)
+settings-spatial-audio-studio = Studio (Monitor)
+settings-spatial-audio-front-stage = Panggung Depan (HRTF)
+settings-spatial-audio-wide-stage = 3D Surround (Luas)
+settings-spatial-audio-concert-hall = Gedung Konser 3D

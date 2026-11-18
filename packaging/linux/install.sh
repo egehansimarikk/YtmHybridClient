@@ -4,7 +4,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_NAME="ytm-hybrid"
-VERSION="0.4.2"
+VERSION="0.4.3"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

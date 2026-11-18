@@ -907,3 +907,30 @@ toast-tray-unavailable = Systémová lišta není k dispozici, ikonu nelze zobra
 
 # power
 wake-reason = Hraje hudba
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = Výstupní zařízení
+settings-audio-device-detail = Vyberte zvukovou kartu nebo výstup DAC/sluchátek pro přehrávání
+settings-audio-device-default = Výchozí v systému
+settings-audio-device-system-default = { $name } (Výchozí)
+settings-audio-device-disconnected = { $id } (Odpojeno)
+settings-audio-device-modal-title = Změnit výstupní zvukové zařízení
+settings-audio-device-modal-detail = Pro přepnutí na „{ $device }“ a uzamčení zvukového enginu na toto zařízení je nutné aplikaci restartovat.
+settings-audio-device-modal-restart = Restartovat
+
+# spatial audio
+settings-group-spatial-audio = Prostorový zvuk
+settings-spatial-audio = Prostorový zvuk
+settings-spatial-audio-detail = Povolit 3D zvukovou scénu a akustiku sluchátek
+settings-spatial-audio-mode = Režim akustické scény
+settings-spatial-audio-mode-detail = Vyberte šířku 3D scény a profil prostorové akustiky pro sluchátka
+settings-spatial-audio-off = Vypnuto
+settings-spatial-audio-subtle = Jemný (Meier)
+settings-spatial-audio-studio = Studio (Monitory)
+settings-spatial-audio-front-stage = Přední scéna (HRTF)
+settings-spatial-audio-wide-stage = 3D Surround (Široký)
+settings-spatial-audio-concert-hall = 3D Koncertní sál

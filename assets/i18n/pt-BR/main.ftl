@@ -725,3 +725,30 @@ nav-pins-alphabetical = Alfabética
 nav-pins-kind = Por tipo
 nav-show-full-library = Mostrar biblioteca completa
 nav-return-top = Voltar ao topo
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = Dispositivo de saída
+settings-audio-device-detail = Selecione a placa de som ou saída DAC/fones de ouvido para reprodução
+settings-audio-device-default = Padrão do sistema
+settings-audio-device-system-default = { $name } (Padrão)
+settings-audio-device-disconnected = { $id } (Desconectado)
+settings-audio-device-modal-title = Alterar dispositivo de saída de áudio
+settings-audio-device-modal-detail = O aplicativo precisa ser reiniciado para alternar para "{ $device }" e vincular o motor de áudio a este dispositivo.
+settings-audio-device-modal-restart = Reiniciar
+
+# spatial audio
+settings-group-spatial-audio = Áudio espacial
+settings-spatial-audio = Áudio espacial
+settings-spatial-audio-detail = Ativar palco sonoro 3D e acústica para fones de ouvido
+settings-spatial-audio-mode = Modo de palco acústico
+settings-spatial-audio-mode-detail = Escolha a largura do palco 3D e o perfil acústico de sala para fones de ouvido
+settings-spatial-audio-off = Desativado
+settings-spatial-audio-subtle = Sutil (Meier)
+settings-spatial-audio-studio = Estúdio (Monitores)
+settings-spatial-audio-front-stage = Palco frontal (HRTF)
+settings-spatial-audio-wide-stage = Surround 3D (Amplo)
+settings-spatial-audio-concert-hall = Sala de concertos 3D

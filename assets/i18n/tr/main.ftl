@@ -656,17 +656,7 @@ toast-track-unplayable = { $name } çalınamadı
 toast-library-add-failed = { $name } kitaplığına eklenemedi
 toast-library-remove-failed = { $name } kitaplığından çıkarılamadı
 
-# audio device
-settings-audio-device = Çıkış Cihazı
-settings-audio-device-detail = Çalma için kullanılacak ses cihazını seçin
-settings-audio-device-default = Sistem varsayılanı
 
-# spatial audio
-settings-group-spatial-audio = Uzamsal Ses
-settings-spatial-audio = Uzamsal Ses
-settings-spatial-audio-detail = 3B ses sahnesini ve kulaklık akustiğini etkinleştir
-settings-spatial-audio-mode = Akustik Sahne Modu
-settings-spatial-audio-mode-detail = Kulaklık için 3B sahne genişliği ve oda akustiği profilini seçin
 
 # lyrics
 lyrics-title = Şarkı sözleri
@@ -720,3 +710,30 @@ nav-pins-alphabetical = Alfabetik
 nav-pins-kind = Türe göre
 nav-show-full-library = Tüm kitaplığı göster
 nav-return-top = Başa dön
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = Ses Çıkış Aygıtı
+settings-audio-device-detail = Çalma için kullanılacak ses kartı veya DAC/kulaklık çıkışını seçin
+settings-audio-device-default = Sistem Varsayılanı
+settings-audio-device-system-default = { $name } (Varsayılan)
+settings-audio-device-disconnected = { $id } (Bağlı Değil)
+settings-audio-device-modal-title = Ses Çıkış Aygıtını Değiştir
+settings-audio-device-modal-detail = "{ $device }" çıkışına geçmek ve ses motorunu bu aygıta kilitlemek için uygulamanın yeniden başlatılması gerekiyor.
+settings-audio-device-modal-restart = Yeniden Başlat
+
+# spatial audio
+settings-group-spatial-audio = Uzamsal Ses
+settings-spatial-audio = Uzamsal Ses
+settings-spatial-audio-detail = 3B ses sahnesini ve kulaklık akustiğini etkinleştir
+settings-spatial-audio-mode = Akustik Sahne Modu
+settings-spatial-audio-mode-detail = Kulaklık için 3B sahne genişliği ve oda akustiği profilini seçin
+settings-spatial-mode-off = Kapalı
+settings-spatial-mode-subtle = Hafif (Meier)
+settings-spatial-mode-studio = Stüdyo (Monitörler)
+settings-spatial-mode-front-stage = Ön Sahne (HRTF)
+settings-spatial-mode-wide-stage = 3B Surround (Geniş)
+settings-spatial-mode-concert-hall = 3B Konser Salonu

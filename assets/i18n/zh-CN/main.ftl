@@ -726,3 +726,30 @@ nav-pins-alphabetical = 按字母顺序
 nav-pins-kind = 按类型
 nav-show-full-library = 显示完整音乐库
 nav-return-top = 返回顶部
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = 嘻哈 (Hip-Hop)
+
+# audio device
+settings-audio-device = 输出设备
+settings-audio-device-detail = 选择用于播放的声卡或 DAC/耳机输出设备
+settings-audio-device-default = 系统默认
+settings-audio-device-system-default = { $name }（默认）
+settings-audio-device-disconnected = { $id }（未连接）
+settings-audio-device-modal-title = 更改音频输出设备
+settings-audio-device-modal-detail = 需要重启应用以切换到“{ $device }”并将音频引擎锁定到此设备。
+settings-audio-device-modal-restart = 重新启动
+
+# spatial audio
+settings-group-spatial-audio = 空间音频
+settings-spatial-audio = 空间音频
+settings-spatial-audio-detail = 启用 3D 声场与耳机声学处理
+settings-spatial-audio-mode = 声学声场模式
+settings-spatial-audio-mode_detail = 为耳机选择 3D 声场宽度与房间声学配置
+settings-spatial-mode-off = 关闭
+settings-spatial-mode-subtle = 柔和 (Meier)
+settings-spatial-mode-studio = 录音室 (监听音箱)
+settings-spatial-mode-front-stage = 前置舞台 (HRTF)
+settings-spatial-mode-wide-stage = 3D 环绕 (宽广)
+settings-spatial-mode-concert-hall = 3D 音乐厅

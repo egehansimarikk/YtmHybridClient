@@ -790,8 +790,8 @@ impl SettingsView {
                 t!("settings-adaptive-menu-detail"),
             ),
             Slot::AudioDevice => (
-                "Ses Çıkış Aygıtı".into(),
-                "Çalma için kullanılacak ses kartı veya DAC/kulaklık çıkışını seçin".into(),
+                t!("settings-audio-device"),
+                t!("settings-audio-device-detail"),
             ),
             Slot::Normalisation => (
                 t!("settings-normalisation"),
@@ -2219,22 +2219,25 @@ impl SettingsView {
                 self.cached_audio_devices.borrow().clone().unwrap_or_default()
             };
 
+        let default_label = t!("settings-audio-device-default");
+
         let current_label: SharedString = match &saved_id {
-            None => "Sistem Varsayılanı".into(),
+            None => default_label.clone(),
             Some(id) => devices
                 .iter()
                 .find(|dev| &dev.id == id)
                 .map(|dev| SharedString::from(dev.name.clone()))
-                .unwrap_or_else(|| SharedString::from(format!("{id} (Bağlı Değil)"))),
+                .unwrap_or_else(|| t!("settings-audio-device-disconnected", id = id.as_str())),
         };
 
         let saved_for_default = saved_id.clone();
-        let default_item = MenuItem::new("audio-device-default", "Sistem Varsayılanı")
+        let default_for_modal = default_label.to_string();
+        let default_item = MenuItem::new("audio-device-default", default_label)
             .selected(saved_id.is_none())
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.popovers.close();
                 if saved_for_default.is_some() {
-                    this.pending_audio_device = Some((None, "Sistem Varsayılanı".to_owned()));
+                    this.pending_audio_device = Some((None, default_for_modal.clone()));
                     cx.notify();
                 }
             }));
@@ -2242,7 +2245,7 @@ impl SettingsView {
         let device_items = devices.into_iter().map(|dev| {
             let is_selected = saved_id.as_deref() == Some(dev.id.as_str());
             let label: SharedString = match dev.is_default {
-                true => format!("{} (Varsayılan)", dev.name).into(),
+                true => t!("settings-audio-device-system-default", name = dev.name.as_str()),
                 false => dev.name.clone().into(),
             };
             let dev_id = dev.id.clone();
@@ -2263,8 +2266,8 @@ impl SettingsView {
             .items(std::iter::once(default_item).chain(device_items));
 
         self.row(
-            "Ses Çıkış Aygıtı".into(),
-            "Çalma için kullanılacak ses kartı veya DAC/kulaklık çıkışını seçin".into(),
+            t!("settings-audio-device"),
+            t!("settings-audio-device-detail"),
             muted,
             small,
             picker.into_any_element(),
@@ -2277,38 +2280,42 @@ impl SettingsView {
         device_name: String,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        Modal::new("settings-audio-device-prompt", "Ses Çıkış Aygıtını Değiştir")
-            .w(px(460.))
-            .detail(format!(
-                "\"{device_name}\" çıkışına geçmek ve ses motorunu bu aygıta kilitlemek için uygulamanın yeniden başlatılması gerekiyor."
-            ))
-            .action(
-                Button::new("settings-audio-device-cancel")
-                    .ghost()
-                    .label("İptal")
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.pending_audio_device = None;
-                        cx.notify();
-                    })),
-            )
-            .action(
-                Button::new("settings-audio-device-restart")
-                    .primary()
-                    .label("Yeniden Başlat")
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        let chosen = target_id.clone();
-                        this.pending_audio_device = None;
-                        this.settings.update(cx, |settings, cx| {
-                            settings.set_audio_device(chosen.clone(), cx);
-                        });
-                        music::audio::set_preferred_device(chosen);
-                        restart_application(cx);
-                    })),
-            )
-            .on_dismiss(cx.listener(|this, _, _, cx| {
-                this.pending_audio_device = None;
-                cx.notify();
-            }))
+        Modal::new(
+            "settings-audio-device-prompt",
+            t!("settings-audio-device-modal-title"),
+        )
+        .w(px(460.))
+        .detail(t!(
+            "settings-audio-device-modal-detail",
+            device = device_name.as_str()
+        ))
+        .action(
+            Button::new("settings-audio-device-cancel")
+                .ghost()
+                .label(t!("common-cancel"))
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.pending_audio_device = None;
+                    cx.notify();
+                })),
+        )
+        .action(
+            Button::new("settings-audio-device-restart")
+                .primary()
+                .label(t!("settings-audio-device-modal-restart"))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    let chosen = target_id.clone();
+                    this.pending_audio_device = None;
+                    this.settings.update(cx, |settings, cx| {
+                        settings.set_audio_device(chosen.clone(), cx);
+                    });
+                    music::audio::set_preferred_device(chosen);
+                    restart_application(cx);
+                })),
+        )
+        .on_dismiss(cx.listener(|this, _, _, cx| {
+            this.pending_audio_device = None;
+            cx.notify();
+        }))
     }
 
     fn playback_row(&self, cx: &mut Context<Self>) -> Setting {
@@ -2584,11 +2591,11 @@ impl SettingsView {
         let picker = Picker::new(
             SPATIAL_AUDIO_MODE,
             &self.popovers,
-            SharedString::from(chosen.display_name()),
+            spatial_mode_label(chosen),
         )
         .width(Picker::NARROW)
         .items(music::spatial::SpatialMode::ALL.map(|mode| {
-            MenuItem::new(mode.id(), SharedString::from(mode.display_name()))
+            MenuItem::new(mode.id(), spatial_mode_label(mode))
                 .selected(chosen == mode)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.playback.update(cx, |playback, cx| {
@@ -4938,6 +4945,22 @@ fn preset_key(preset: Preset) -> &'static str {
         Preset::Electronic => "settings-equalizer-electronic",
         Preset::Acoustic => "settings-equalizer-acoustic",
         Preset::Loudness => "settings-equalizer-loudness",
+        Preset::HarmanIem => "settings-equalizer-harman-iem",
+        Preset::Phonk => "settings-equalizer-phonk",
+        Preset::HipHop => "settings-equalizer-hip-hop",
+        _ => "settings-equalizer-custom",
+    }
+}
+
+fn spatial_mode_label(mode: music::spatial::SpatialMode) -> SharedString {
+    use music::spatial::SpatialMode;
+    match mode {
+        SpatialMode::Off => t!("settings-spatial-mode-off"),
+        SpatialMode::Subtle => t!("settings-spatial-mode-subtle"),
+        SpatialMode::Studio => t!("settings-spatial-mode-studio"),
+        SpatialMode::FrontStage => t!("settings-spatial-mode-front-stage"),
+        SpatialMode::WideStage => t!("settings-spatial-mode-wide-stage"),
+        SpatialMode::ConcertHall => t!("settings-spatial-mode-concert-hall"),
     }
 }
 

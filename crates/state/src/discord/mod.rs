@@ -17,7 +17,7 @@ use discord_rich_presence::DiscordIpcClient as Client;
 #[cfg(unix)]
 use socket::Socket as Client;
 
-const APPLICATION_ID: &str = "1547350467904806923";
+const APPLICATION_ID: &str = "1572579090194505730";
 const RETRY_DELAY: Duration = Duration::from_secs(3);
 const SWITCH_DEBOUNCE: Duration = Duration::from_secs(1);
 const MAX_START_DRIFT_SECONDS: u64 = 2;

@@ -872,3 +872,30 @@ trouble-offline-detail = Перевірте підключення до інте
 trouble-not-loaded = Не вдалося завантажити
 trouble-retry = Повторити
 toast-offline = Немає з'єднання. Нічого не відтворюватиметься, доки воно не повернеться.
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Фонк
+settings-equalizer-hip-hop = Хіп-хоп
+
+# audio device
+settings-audio-device = Пристрій виводу
+settings-audio-device-detail = Виберіть звукову карту або вихід ЦАП/наушників для відтворення
+settings-audio-device-default = Системний за замовчуванням
+settings-audio-device-system-default = { $name } (За замовчуванням)
+settings-audio-device-disconnected = { $id } (Відключено)
+settings-audio-device-modal-title = Змінити пристрій виводу звуку
+settings-audio-device-modal-detail = Щоб перейти на «{ $device }» та закріпити аудіорушій за цим пристроєм, потрібно перезапустити застосунок.
+settings-audio-device-modal-restart = Перезапустити
+
+# spatial audio
+settings-group-spatial-audio = Просторовий звук
+settings-spatial-audio = Просторовий звук
+settings-spatial-audio-detail = Увімкнути 3D-звукову сцену та акустику для навушників
+settings-spatial-audio-mode = Режим акустичної сцени
+settings-spatial-audio-mode-detail = Виберіть ширину 3D-сцени та профіль акустики приміщення для навушників
+settings-spatial-audio-off = Вимк.
+settings-spatial-audio-subtle = Легкий (Meier)
+settings-spatial-audio-studio = Студія (Монітори)
+settings-spatial-audio-front-stage = Передня сцена (HRTF)
+settings-spatial-audio-wide-stage = 3D Surround (Широкий)
+settings-spatial-audio-concert-hall = 3D Концертний зал

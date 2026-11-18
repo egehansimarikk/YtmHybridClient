@@ -2,7 +2,7 @@
 # This script creates portable ZIP archives, automated Windows installers, and MSIX packages
 
 param(
-    [string]$Version = "0.4.2",
+    [string]$Version = "0.4.3",
     [string]$OutputDir = "./dist",
     [switch]$Build
 )

@@ -649,17 +649,6 @@ settings-equalizer-loudness = Loudness
 settings-equalizer-decibels = { $db } dB
 settings-equalizer-hertz = { $hz } Hz
 settings-equalizer-kilohertz = { $khz } kHz
-settings-audio-device = Output device
-settings-audio-device-detail = Select which audio device to use for playback
-settings-audio-device-default = System default
-settings-group-spatial-audio = Spatial Audio
-settings-spatial-audio = Spatial Audio
-settings-spatial-audio-detail = Enable 3D soundstage processing
-settings-spatial-mode = Spatial Mode
-settings-spatial-mode-detail = Choose your preferred spatial audio processing mode
-settings-spatial-mode-dolby-atmos-passthrough = Dolby Atmos Passthrough
-settings-spatial-mode-custom-hrtf = Custom HRTF (3D Soundstage)
-settings-spatial-mode-binaural-crossfeed = Binaural Crossfeed (Speaker Sim)
 settings-panel-lyrics-size = Lyrics size (panel)
 settings-panel-lyrics-size-detail = Size of the lyrics text in the side panel, on top of the base font size
 settings-fullscreen-lyrics-size = Lyrics size (fullscreen)
@@ -1006,3 +995,30 @@ toast-sample-save-failed = { $name } could not be saved
 toast-sample-save-failed-detail = The server answered 503 Service Unavailable
 toast-sample-lasting = This one stays until you close it
 toast-sample-burst = Toast number { $name }
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = Output device
+settings-audio-device-detail = Select which sound card or DAC/headphone output to use for playback
+settings-audio-device-default = System default
+settings-audio-device-system-default = { $name } (Default)
+settings-audio-device-disconnected = { $id } (Disconnected)
+settings-audio-device-modal-title = Change Audio Output Device
+settings-audio-device-modal-detail = The application needs to restart to switch to "{ $device }" and lock the audio engine to this device.
+settings-audio-device-modal-restart = Restart
+
+# spatial audio
+settings-group-spatial-audio = Spatial Audio
+settings-spatial-audio = Spatial Audio
+settings-spatial-audio-detail = Enable 3D soundstage and headphone acoustics processing
+settings-spatial-audio-mode = Acoustic Stage Mode
+settings-spatial-audio-mode-detail = Choose the 3D soundstage width and room acoustics profile for headphones
+settings-spatial-mode-off = Off
+settings-spatial-mode-subtle = Subtle (Meier)
+settings-spatial-mode-studio = Studio (Monitors)
+settings-spatial-mode-front-stage = Front Stage (HRTF)
+settings-spatial-mode-wide-stage = 3D Surround (Wide)
+settings-spatial-mode-concert-hall = 3D Concert Hall

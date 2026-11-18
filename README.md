@@ -21,7 +21,7 @@
       <img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License: GPL-3.0" />
     </a>
     <a href="https://github.com/egehansimarikk/YtmHybridClient/releases">
-      <img src="https://img.shields.io/badge/Version-v0.4.0-red.svg" alt="Version 0.4.0" />
+      <img src="https://img.shields.io/badge/Version-v0.4.3-red.svg" alt="Version 0.4.3" />
     </a>
     <a href="https://rust-lang.org">
       <img src="https://img.shields.io/badge/Made%20with-Rust-orange.svg" alt="Made with Rust" />
@@ -44,11 +44,14 @@
 
 - **YouTube Music streaming** with native ytmusic-rs integration
 - **WebView authentication** using SAPISID/3PAPISID cookies
+- **Advanced Spatial Audio Modes**: Acoustic stage profiles including *Subtle (Meier)*, *Studio (Monitors)*, *Front Stage (HRTF)*, *3D Surround (Wide)*, and *3D Concert Hall*
+- **Custom Equalizer Presets**: Integrated tuning profiles for *Harman IEM*, *Phonk*, and *Hip-Hop*
 - Gapless playback with audio normalization
 - Shuffle mode and sleep timer
 - Synced/karaoke lyrics with romanization support
 - Scrobbling with LastFM, ListenBrainz, LibreFM, and Maloja
 - Discord Rich Presence
+- **Multi-Language Support**: Comprehensive localization (.ftl) for English, Turkish, German, Spanish, French, Italian, Indonesian, Japanese, Russian, Ukrainian, Polish, Czech, Portuguese (Brazil), Simplified Chinese, and Albanian
 - Customizable themes, fonts, icons, transparency, and blur effects
 - Local file playback support
 - Native performance with GPUI framework
@@ -58,13 +61,17 @@
 
 ### Windows
 
-#### Installer (Recommended)
+#### Setup Installer (Recommended)
+Download and run the [Inno Setup Installer](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/YTMHybrid-v0.4.3-Setup.exe).
 
-Download and run the [Windows Installer](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid-Setup.exe).
+#### Portable Executable
+Download the standalone `ytm-hybrid.exe` from [Releases](https://github.com/egehansimarikk/YtmHybridClient/releases/latest) and run it directly without installation.
 
-#### Portable
+#### Automated ZIP Archive
+Download `ytm-hybrid-v0.4.3-windows-x64.zip`, extract it, and run with included scripts.
 
-Download the standalone [`ytm-hybrid.exe`](https://github.com/egehansimarikk/YtmHybridClient/releases/latest/download/ytm-hybrid.exe) from [Releases](https://github.com/egehansimarikk/YtmHybridClient/releases/latest) and run it directly without installation.
+#### MSIX Package
+Download both `ytm-hybrid-v0.4.3-windows-x64.msix` and `install-msix.bat` into the same folder, then double-click `install-msix.bat` to automatically trust the self-signed certificate and install the app. *(Note: Make sure your Windows system clock is synced if you encounter a certificate time error.)*
 
 ### Linux
 
@@ -73,24 +80,23 @@ Download the standalone [`ytm-hybrid.exe`](https://github.com/egehansimarikk/Ytm
 Download the `.deb` package from the [latest release](https://github.com/egehansimarikk/YtmHybridClient/releases/latest) and install it via `dpkg` or your desktop software manager:
 
 ```sh
-sudo dpkg -i ytm-hybrid_0.3.0_amd64.deb
+sudo dpkg -i ytm-hybrid_0.4.3-1_amd64.deb
 sudo apt-get install -f  # Fix any missing dependencies if needed
-
 ```
+
 #### Generic Tarball (.tar.gz)
 Download the portable .tar.gz archive, extract it, make the binary executable, and run:
 
 ```sh
-tar -xzf ytm-hybrid-v0.3.0-linux-x64.tar.gz
-cd ytm-hybrid-v0.3.0-linux-x64
+tar -xzf ytm-hybrid-v0.4.3-linux-x64.tar.gz
+cd ytm-hybrid-v0.4.3-linux-x64
 chmod +x install.sh
 ./install.sh          # Use ./install.sh --uninstall to remove
-
 ```
 
 ### macOS
 
-Download the .dmg installer (YTM-Hybrid-0.3.0-macOS.dmg) from Releases, open it, and drag YTM Hybrid into your Applications folder.
+Download the .dmg installer (`YTM-Hybrid-v0.4.3-x64.dmg`) from Releases, open it, and drag YTM Hybrid into your Applications folder.
 
 Since the application is not notarized with an Apple Developer certificate, macOS Gatekeeper may block the first launch. You can bypass this by Right-clicking → Open on the app, or by clearing the quarantine attribute in Terminal:
 

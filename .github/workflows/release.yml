@@ -92,7 +92,7 @@ jobs:
             dist/SHA256SUMS-linux.txt
 
   # ===========================================================================
-  # Windows Build (ZIP with install.ps1, .exe, and MSIX)
+  # Windows Build (ZIP, MSIX, Inno Setup .exe, Portable .exe, and install-msix.bat)
   # ===========================================================================
   build-windows:
     name: Build Windows Packages
@@ -129,17 +129,33 @@ jobs:
             Write-Warning "Windows SDK x64 bin dizini bulunamadı!"
           }
 
-      - name: Run Windows Packaging Script
+      - name: Run Windows Packaging Script (ZIP, MSIX, Portable)
         shell: pwsh
         run: |
           if (Test-Path ".\scripts\package-windows.ps1") {
-              .\scripts\package-windows.ps1 -Version "0.4.2" -Build
+              .\scripts\package-windows.ps1 -Version "0.4.3" -Build
           } elseif (Test-Path ".\package-windows.ps1") {
-              .\package-windows.ps1 -Version "0.4.2" -Build
+              .\package-windows.ps1 -Version "0.4.3" -Build
           } elseif (Test-Path ".\packaging\package-windows.ps1") {
-              .\packaging\package-windows.ps1 -Version "0.4.2" -Build
+              .\packaging\package-windows.ps1 -Version "0.4.3" -Build
           } else {
               throw "package-windows.ps1 bulunamadı!"
+          }
+
+      - name: Compile Inno Setup Installer (.exe)
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
+          path: scripts/windows/ytmhybrid.iss
+          options: /DSourcePath=target/release /DAppVersion=0.4.3 /DOutputDir=dist
+
+      - name: Copy install-msix.bat to dist
+        shell: pwsh
+        run: |
+          if (Test-Path "scripts\windows\install-msix.bat") {
+              Copy-Item "scripts\windows\install-msix.bat" -Destination "dist\"
+              Write-Host "install-msix.bat dist/ klasörüne kopyalandı."
+          } else {
+              Write-Warning "scripts/windows/install-msix.bat bulunamadı!"
           }
 
       - name: Generate SHA256 checksums
@@ -160,6 +176,7 @@ jobs:
             dist/*.zip
             dist/*.msix
             dist/*.exe
+            dist/*.bat
             dist/SHA256SUMS-windows.txt
 
   # ===========================================================================
@@ -204,7 +221,7 @@ jobs:
             [ ! -d "$BUNDLE_DIR" ] && BUNDLE_DIR="target/release/bundle/macos"
             APP_PATH=$(find "$BUNDLE_DIR" -maxdepth 1 -name "*.app" | head -n 1)
             APP_NAME=$(basename "$APP_PATH")
-            DMG_PATH="dist/YTM_Hybrid-v0.4.2-x64.dmg"
+            DMG_PATH="dist/YTM_Hybrid-v0.4.3-x64.dmg"
             rm -f "$DMG_PATH"
             create-dmg \
               --volname "YTM Hybrid" \
@@ -253,7 +270,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.zip" -o -name "*.msix" -o -name "*.dmg" -o -name "*.exe" \) -exec cp {} release-assets/ \;
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.zip" -o -name "*.msix" -o -name "*.dmg" -o -name "*.exe" -o -name "*.bat" \) -exec cp {} release-assets/ \;
           cat artifacts/*/SHA256SUMS-*.txt > release-assets/SHA256SUMS.txt 2>/dev/null || true
 
       - name: Extract version from tag
@@ -262,41 +279,45 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=0.4.2" >> $GITHUB_OUTPUT
+            echo "VERSION=0.4.3" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Release Notes
         run: |
           sed 's/^          //' << 'EOF' > RELEASE_NOTES.md
-          ## What's New in v0.4.2
+          ## What's New in v0.4.3
 
-          ### 🎛️ Audio Engine & Device Management
-          - **Refined 3D Soundstage & Acoustic Modes**: Overhauled spatial audio with tuned Bauer crossfeed (bs2b), sub-bass mono anchoring, and multi-tap acoustic reflection models for *Studio*, *Wide Stage*, and *Concert Hall*.
-          - **Clean Output Device Selection**: Filtered out redundant virtual drivers and duplicate card entries so only clean hardware sinks appear.
+          ### 🎛️ Spatial Audio & Equalizer Enhancements
+          - **Advanced Spatial Audio Modes**: Implemented acoustic stage profiles including *Subtle (Meier)*, *Studio (Monitors)*, *Front Stage (HRTF)*, *3D Surround (Wide)*, and *3D Concert Hall*.
+          - **Custom Equalizer Presets**: Integrated custom tuning presets for *Harman IEM*, *Phonk*, and *Hip-Hop*.
 
-          ### 🛠️ CI/CD & Packaging Improvements
-          - **Smart Linux & Windows Installers**: Automated `.tar.gz` and `.zip` packages now include smart update/install scripts that automatically handle process locks (`pkill`) and clean overwrites.
-          - **MSIX & AppImage Support**: Automated CI pipeline now builds robust MSIX packages for Windows alongside AppImage and .deb for Linux.
+          ### 🌐 Localization & UI Improvements
+          - **Multi-Language Support Expansion**: Added comprehensive localization (.ftl files) for English, Turkish, German, Spanish, French, Italian, Indonesian, Japanese, Russian, Ukrainian, Polish, Czech, Portuguese (Brazil), Simplified Chinese, and Albanian.
+
+          ### 🛠️ CI/CD & Windows Inno Setup
+          - **Automated Inno Setup Installer**: Integrated GitHub Actions CI pipeline with Inno Setup to automatically build and compile professional Windows setup executables (`YTMHybrid-v0.4.3-Setup.exe`).
 
           ---
 
           ## Installation
 
           ### Windows
-          - **Automated ZIP (Recommended)**: `ytm-hybrid-v0.4.2-windows-x64.zip` (Extract and run `install.ps1`)
-          - **MSIX Package**: `ytm-hybrid-v0.4.2-windows-x64.msix`
+          - **Setup Installer (.exe)**: `YTMHybrid-v0.4.3-Setup.exe` (Recommended)
+          - **Portable Executable (.exe)**: `ytm-hybrid.exe` (Standalone portable binary)
+          - **Automated ZIP Archive**: `ytm-hybrid-v0.4.3-windows-x64.zip`
+          - **MSIX Package**: Download both `ytm-hybrid-v0.4.3-windows-x64.msix` and `install-msix.bat` into the same folder, then double-click `install-msix.bat` to automatically trust the self-signed certificate and install the app. *(Note: Make sure your Windows system clock is synced if you encounter a certificate time error.)*
 
           ### Linux
-          - **Debian / Ubuntu / Mint (.deb)**: `ytm-hybrid_0.4.2-1_amd64.deb`
-          - **Generic Tarball (.tar.gz)**: `ytm-hybrid-v0.4.2-linux-x64.tar.gz` (Includes automated `install.sh` script)
-          - **AppImage**: `YTM_Hybrid-v0.4.2-x86_64.AppImage`
+          - **Debian / Ubuntu / Mint (.deb)**: `ytm-hybrid_0.4.3-1_amd64.deb`
+          - **Generic Tarball (.tar.gz)**: `ytm-hybrid-v0.4.3-linux-x64.tar.gz`
+          - **AppImage**: `YTM_Hybrid-v0.4.3-x86_64.AppImage`
 
           ### macOS
-          - **Disk Image (.dmg)**: `YTM-Hybrid-0.4.2-macOS.dmg`
+          - **Disk Image (.dmg)**: `YTM-Hybrid-0.4.3-macOS.dmg`
 
           ---
 
-          **Full Changelog**: [v0.4.0...v0.4.2](https://github.com/egehansimarikk/YtmHybridClient/compare/v0.4.0...v0.4.2)
+          **Full Changelog**: [v0.4.2...v0.4.3](https://github.com/egehansimarikk/YtmHybridClient/compare/v0.4.2...v0.4.3)
           EOF
 
       - name: Create GitHub Release

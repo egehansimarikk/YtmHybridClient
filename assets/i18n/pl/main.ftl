@@ -874,3 +874,30 @@ trouble-offline-detail = Sprawdź połączenie z internetem i spróbuj ponownie.
 trouble-not-loaded = Nie udało się wczytać
 trouble-retry = Spróbuj ponownie
 toast-offline = Brak połączenia. Nic nie zostanie odtworzone, dopóki nie wróci.
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = Urządzenie wyjściowe
+settings-audio-device-detail = Wybierz kartę dźwiękową lub wyjście DAC/słuchawkowe do odtwarzania
+settings-audio-device-default = Domyślne systemowe
+settings-audio-device-system-default = { $name } (Domyślne)
+settings-audio-device-disconnected = { $id } (Odłączone)
+settings-audio-device-modal-title = Zmień urządzenie wyjściowe audio
+settings-audio-device-modal-detail = Aplikacja musi zostać uruchomiona ponownie, aby przełączyć się na „{ $device }” i przypisać silnik audio do tego urządzenia.
+settings-audio-device-modal-restart = Uruchom ponownie
+
+# spatial audio
+settings-group-spatial-audio = Dźwięk przestrzenny
+settings-spatial-audio = Dźwięk przestrzenny
+settings-spatial-audio-detail = Włącz scenę dźwiękową 3D i akustykę słuchawek
+settings-spatial-audio-mode = Tryb sceny akustycznej
+settings-spatial-audio-mode-detail = Wybierz szerokość sceny 3D i profil akustyki pomieszczenia dla słuchawek
+settings-spatial-audio-off = Wyłączony
+settings-spatial-audio-subtle = Subtelny (Meier)
+settings-spatial-audio-studio = Studio (Monitory)
+settings-spatial-audio-front-stage = Scena przednia (HRTF)
+settings-spatial-audio-wide-stage = 3D Surround (Szeroki)
+settings-spatial-audio-concert-hall = Sala koncertowa 3D

@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.0.0",
+    [string]$Version = "0.4.3",
     [string]$Executable = "target/release/ytmhybrid.exe",
     [string]$Output = "dist"
 )

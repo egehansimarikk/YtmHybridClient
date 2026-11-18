@@ -1,18 +1,26 @@
 #define AppName "YTM Hybrid"
-#define AppVersion "0.2.0"
+#ifndef AppVersion
+  #define AppVersion "0.4.3"
+#endif
 #define AppPublisher "Egehan Şımarık"
 #define AppExeName "ytm-hybrid.exe"
 
-; Proje kök dizinine göre dosya yolları
-#define SourceExe "D:\Projeler\ytm_hybrid_client\target\release\ytm-hybrid.exe"
-#define OutputDir "target\release"
-#define SetupName "YTMHybrid-Setup"
-#define AppIcon "D:\Projeler\ytm_hybrid_client\assets\windows\YTMHybridClientlogo(RUST).ico"
+; GitHub Actions veya lokal ortama göre otomatik uyarlanan dizinler
+#ifndef SourcePath
+  #define SourcePath "."
+#endif
+#define SourceExe SourcePath + "\ytm-hybrid.exe"
+#define OutputDir "."
+#define SetupName "YTMHybrid-v" + AppVersion + "-Setup"
+#ifndef AppIcon
+  #define AppIcon "YTMHybridClientlogo(RUST).ico"
+#endif
 
 [Setup]
 AppId={{C9E4B1A2-82D5-4E82-9B7C-123456789ABC}}
 AppName={#AppName}
 AppVersion={#AppVersion}
+VersionInfoVersion={#AppVersion}.0
 AppPublisher={#AppPublisher}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
@@ -35,15 +43,13 @@ Name: "desktopicon"; Description: "Masaüstü kısayolu oluştur"; GroupDescript
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "{#AppExeName}"; Flags: ignoreversion
-Source: "COPYING"; DestDir: "{app}"; DestName: "LICENSE"; Flags: ignoreversion
-Source: "THIRD-PARTY.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Registry]
-; Windows Uygulama Kaydı
+; Windows Uygulama ve Varsayılan Kayıtları
 Root: HKA; Subkey: "Software\YTMHybrid"; Flags: uninsdeletekeyifempty
 Root: HKA; Subkey: "Software\YTMHybrid\Capabilities"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\YTMHybrid\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "{#AppName}"; Flags: uninsdeletevalue

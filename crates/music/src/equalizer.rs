@@ -4,7 +4,8 @@
 //! `Equalizer` is the lock-free atomic handle held by UI and settings, while `Equalized`
 //! is the `rodio::Source` wrapper running on the audio thread. Supports both classic
 //! 10-band octave graphic presets and full Parametric EQ / AutoEQ `.txt` profiles
-//! (`Preamp`, `PK`, `LSC`, `HSC`, per-band `Fc`, `Gain`, and `Q`).
+//! (`Preamp`, `PK`, `LSC`, `HSC`, per-band `Fc`, `Gain`, and `Q`), automatic anti-clipping
+//! headroom, and a soft true-peak limiter.
 
 use std::num::NonZero;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering};
@@ -163,14 +164,6 @@ impl Default for AutoEqProfile {
 
 impl AutoEqProfile {
     /// Parses a standard AutoEQ / EqualizerAPO `.txt` file content.
-    ///
-    /// Example supported lines:
-    /// ```text
-    /// Preamp: -6.4 dB
-    /// Filter 1: ON PK Fc 21 Hz Gain 4.8 dB Q 0.65
-    /// Filter 2: ON LSC Fc 105 Hz Gain 2.1 dB Q 0.70
-    /// Filter 3: ON HSC Fc 10000 Hz Gain -3.2 dB Q 0.71
-    /// ```
     pub fn from_autoeq_txt(name: impl Into<String>, text: &str) -> Result<Self, String> {
         let mut preamp_db = 0.0f32;
         let mut parsed_bands: Vec<ParametricBand> = Vec::with_capacity(BANDS);
@@ -239,7 +232,6 @@ impl AutoEqProfile {
 }
 
 fn parse_filter_line(line: &str) -> Option<ParametricBand> {
-    // Expected: "Filter N: ON PK Fc 21 Hz Gain 4.8 dB Q 0.65"
     let (_, rhs) = line.split_once(':')?;
     let tokens: Vec<&str> = rhs.split_whitespace().collect();
     if tokens.len() < 2 {
@@ -296,16 +288,19 @@ fn parse_filter_line(line: &str) -> Option<ParametricBand> {
 }
 
 // ==============================================================================
-// Graphic EQ Presets (Backward-Compatible)
+// Graphic EQ Presets (Level-Normalized + IEM / Phonk Targets)
 // ==============================================================================
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Preset {
     Flat,
+    HarmanIem,
     BassBoost,
+    Phonk,
     BassReducer,
     TrebleBoost,
     Vocal,
+    HipHop,
     Rock,
     Pop,
     Jazz,
@@ -313,15 +308,19 @@ pub enum Preset {
     Electronic,
     Acoustic,
     Loudness,
+    LateNight,
 }
 
 impl Preset {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 16] = [
         Self::Flat,
+        Self::HarmanIem,
         Self::BassBoost,
+        Self::Phonk,
         Self::BassReducer,
         Self::TrebleBoost,
         Self::Vocal,
+        Self::HipHop,
         Self::Rock,
         Self::Pop,
         Self::Jazz,
@@ -329,15 +328,19 @@ impl Preset {
         Self::Electronic,
         Self::Acoustic,
         Self::Loudness,
+        Self::LateNight,
     ];
 
     pub fn id(self) -> &'static str {
         match self {
             Self::Flat => "flat",
+            Self::HarmanIem => "harman-iem",
             Self::BassBoost => "bass-boost",
+            Self::Phonk => "phonk",
             Self::BassReducer => "bass-reducer",
             Self::TrebleBoost => "treble-boost",
             Self::Vocal => "vocal",
+            Self::HipHop => "hip-hop",
             Self::Rock => "rock",
             Self::Pop => "pop",
             Self::Jazz => "jazz",
@@ -345,24 +348,34 @@ impl Preset {
             Self::Electronic => "electronic",
             Self::Acoustic => "acoustic",
             Self::Loudness => "loudness",
+            Self::LateNight => "late-night",
         }
     }
 
     pub fn gains(self) -> Gains {
         match self {
             Self::Flat => [0.; BANDS],
-            Self::BassBoost => [6., 5., 4., 2.5, 1., 0., 0., 0., 0., 0.],
+            Self::HarmanIem => [3.5, 2.5, -1.0, -2.5, -0.5, 1.0, 3.0, 3.5, 1.5, 0.5],
+            Self::BassBoost => [2.5, 4.5, 3.0, -1.0, -1.5, -1.0, -0.5, 0.0, -1.0, -1.5],
+            Self::Phonk => [5.0, 4.0, 1.5, -2.0, -1.5, 0.0, 1.5, 2.5, 2.0, 1.0],
             Self::BassReducer => [-6., -5., -4., -2.5, -1., 0., 0., 0., 0., 0.],
-            Self::TrebleBoost => [0., 0., 0., 0., 0., 1., 2.5, 4., 5., 6.],
-            Self::Vocal => [-2., -3., -3., 1., 4., 4., 3., 1.5, 0., -1.5],
-            Self::Rock => [5., 4., 3., 1., -0.5, -1., 0.5, 2.5, 3.5, 4.5],
+            Self::TrebleBoost => [-1.0, -0.5, 0.0, 0.0, 0.0, 0.5, 1.5, 3.0, 4.0, 3.5],
+            Self::Vocal => [-2.0, -1.5, -0.5, 1.0, 2.0, 3.0, 3.5, 2.0, 1.0, 0.5],
+            Self::HipHop => [4.5, 3.5, 1.0, -1.5, -1.0, 0.5, 1.5, 2.0, 2.5, 1.5],
+            Self::Rock => [4.0, 3.0, 2.0, 0.5, -1.0, -1.0, 0.5, 2.5, 3.5, 4.0],
             Self::Pop => [-1.5, -1., 0., 2., 4., 4., 2., 0., -1., -1.5],
-            Self::Jazz => [4., 3., 1.5, 2., -1.5, -1.5, 0., 1.5, 3., 4.],
-            Self::Classical => [4.5, 3.5, 3., 2.5, -1.5, -1.5, 0., 2.5, 3.5, 4.],
-            Self::Electronic => [4.5, 4., 1., 0., -2., 2., 1., 1.5, 4., 5.],
-            Self::Acoustic => [5., 4.5, 3.5, 1., 2., 1.5, 3.5, 4., 3.5, 2.],
-            Self::Loudness => [6., 4., 0., 0., -2., 0., -1., -5., 5., 1.],
+            Self::Jazz => [3.5, 2.5, 1.0, 1.5, -1.5, -1.5, 0.0, 1.5, 3.0, 3.5],
+            Self::Classical => [4.0, 3.0, 2.5, 2.0, -1.5, -1.5, 0.0, 2.5, 3.5, 4.0],
+            Self::Electronic => [4.5, 3.5, 1.0, -0.5, -2.0, 1.5, 1.0, 1.5, 3.5, 4.5],
+            Self::Acoustic => [3.0, 2.5, 1.5, 0.5, 1.5, 1.5, 3.0, 3.5, 2.5, 1.5],
+            Self::Loudness => [5.0, 3.5, 0.0, 0.0, -2.0, 0.0, -1.0, -3.5, 4.0, 1.5],
+            Self::LateNight => [-4.0, -2.5, 0.0, 1.5, 2.5, 2.5, 1.5, 0.0, -1.5, -2.5],
         }
+    }
+
+    /// Recommended negative preamp headroom (in dB) to prevent digital clipping.
+    pub fn recommended_preamp_db(self) -> f32 {
+        recommended_preamp_for_gains(&self.gains())
     }
 
     pub fn matching(gains: &Gains) -> Option<Self> {
@@ -373,6 +386,20 @@ impl Preset {
                 .zip(gains)
                 .all(|(want, have)| (want - have).abs() < 0.05)
         })
+    }
+}
+
+/// Computes safe negative preamp headroom for any 10-band gain array.
+pub fn recommended_preamp_for_gains(gains: &Gains) -> f32 {
+    let peak = gains
+        .iter()
+        .copied()
+        .filter(|g| g.is_finite())
+        .fold(0.0f32, f32::max);
+    if peak > 0.1 {
+        -(peak * 0.85).clamp(0.0, 12.0)
+    } else {
+        0.0
     }
 }
 
@@ -518,6 +545,25 @@ impl Equalizer {
         self.0.generation.fetch_add(1, Ordering::Release);
     }
 
+    /// Sets 10-band graphic EQ gains along with automatic anti-clipping preamp headroom.
+    pub fn set_gains_with_auto_preamp(&self, gains: &Gains) {
+        let clean = clamped(gains);
+        let auto_preamp = recommended_preamp_for_gains(&clean);
+        self.0.parametric_mode.store(false, Ordering::Release);
+        self.0
+            .preamp_db
+            .store(auto_preamp.to_bits(), Ordering::Release);
+        for (i, (slot, gain)) in self.0.bands.iter().zip(clean).enumerate() {
+            slot.store(ParametricBand::graphic(FREQUENCIES[i], gain));
+        }
+        self.0.generation.fetch_add(1, Ordering::Release);
+    }
+
+    /// Applies a built-in graphic `Preset` with calibrated anti-clipping headroom.
+    pub fn apply_preset(&self, preset: Preset) {
+        self.set_gains_with_auto_preamp(&preset.gains());
+    }
+
     /// Returns all 10 parametric band configurations.
     pub fn bands(&self) -> [ParametricBand; BANDS] {
         std::array::from_fn(|i| self.0.bands[i].load())
@@ -605,15 +651,26 @@ struct Biquad {
 }
 
 impl Biquad {
-    fn from_band(band: ParametricBand, gain_override: f32, freq_override: f32, q_override: f32, rate: f32) -> Self {
-        if !band.enabled || gain_override.abs() < 1e-4 || freq_override >= rate * 0.5 * NYQUIST_MARGIN {
+    fn from_band(
+        band: ParametricBand,
+        gain_override: f32,
+        freq_override: f32,
+        q_override: f32,
+        rate: f32,
+    ) -> Self {
+        if !band.enabled
+            || gain_override.abs() < 1e-4
+            || freq_override >= rate * 0.5 * NYQUIST_MARGIN
+        {
             return Self::identity();
         }
 
         match band.filter_type {
             FilterType::Peaking => Self::peaking(freq_override, gain_override, q_override, rate),
             FilterType::LowShelf => Self::low_shelf(freq_override, gain_override, q_override, rate),
-            FilterType::HighShelf => Self::high_shelf(freq_override, gain_override, q_override, rate),
+            FilterType::HighShelf => {
+                Self::high_shelf(freq_override, gain_override, q_override, rate)
+            }
         }
     }
 
@@ -688,6 +745,22 @@ impl Delay {
         self.z1 = coefficients.b1 * x - coefficients.a1 * y + self.z2;
         self.z2 = coefficients.b2 * x - coefficients.a2 * y;
         y
+    }
+}
+
+/// Soft knee limiter preventing harsh digital clipping when EQ + Spatial boosts stack.
+#[inline(always)]
+fn soft_limit(x: f32) -> f32 {
+    const THRESHOLD: f32 = 0.92;
+    const CEILING: f32 = 0.985;
+    let abs_x = x.abs();
+    if abs_x <= THRESHOLD {
+        x
+    } else {
+        let excess = abs_x - THRESHOLD;
+        let headroom = CEILING - THRESHOLD;
+        let compressed = THRESHOLD + headroom * (excess / (excess + headroom));
+        compressed.copysign(x)
     }
 }
 
@@ -870,10 +943,12 @@ impl<I: Source> Iterator for Equalized<I> {
             true => {
                 let delays = &mut self.delays[self.channel];
                 let pre = sample * self.preamp_linear;
-                self.coefficients
+                let filtered = self
+                    .coefficients
                     .iter()
                     .zip(delays.iter_mut())
-                    .fold(pre, |x, (coefficients, delay)| delay.run(coefficients, x))
+                    .fold(pre, |x, (coefficients, delay)| delay.run(coefficients, x));
+                soft_limit(filtered)
             }
             false => sample,
         };
@@ -939,7 +1014,6 @@ Filter 4: OFF PK Fc 1000 Hz Gain 5.0 dB Q 1.41
 
         assert_eq!(profile.bands[1].filter_type, FilterType::LowShelf);
         assert_eq!(profile.bands[2].filter_type, FilterType::HighShelf);
-        // Disabled Filter 4 is skipped, so band[3] stays flat 0.0 dB
         assert_eq!(profile.bands[3].gain_db, 0.0);
     }
 
@@ -954,5 +1028,13 @@ Filter 4: OFF PK Fc 1000 Hz Gain 5.0 dB Q 1.41
         assert!(eq.is_parametric());
         assert!((eq.preamp_db() - (-4.5)).abs() < 1e-4);
         assert!(eq.export_autoeq_txt("Custom IEM").contains("Preamp: -4.5 dB"));
+    }
+
+    #[test]
+    fn preset_auto_preamp_prevents_clipping() {
+        let eq = Equalizer::default();
+        eq.apply_preset(Preset::Phonk);
+        assert!(eq.preamp_db() < -4.0);
+        assert_eq!(Preset::matching(&eq.gains()), Some(Preset::Phonk));
     }
 }

@@ -880,3 +880,30 @@ toast-offline = Pas de connexion. Aucune lecture en streaming tant qu'elle n'est
 toast-settings-broken = Corrigez la ligne { $name } de settings.json pour enregistrer les modifications
 toast-tray-unavailable = Il n'y a pas de zone de notification où placer l'icône
 wake-reason = Musique en cours de lecture
+# equalizer (custom presets)
+settings-equalizer-harman-iem = Harman IEM
+settings-equalizer-phonk = Phonk
+settings-equalizer-hip-hop = Hip-Hop
+
+# audio device
+settings-audio-device = Périphérique de sortie
+settings-audio-device-detail = Sélectionnez la carte son ou la sortie DAC/casque à utiliser pour la lecture
+settings-audio-device-default = Défaut du système
+settings-audio-device-system-default = { $name } (Par défaut)
+settings-audio-device-disconnected = { $id } (Déconnecté)
+settings-audio-device-modal-title = Changer de périphérique de sortie audio
+settings-audio-device-modal-detail = L'application doit redémarrer pour basculer vers « { $device } » et verrouiller le moteur audio sur ce périphérique.
+settings-audio-device-modal-restart = Redémarrer
+
+# spatial audio
+settings-group-spatial-audio = Audio spatial
+settings-spatial-audio = Audio spatial
+settings-spatial-audio-detail = Activer la scène sonore 3D et l'acoustique pour casque
+settings-spatial-audio-mode = Mode de scène acoustique
+settings-spatial-audio-mode-detail = Choisissez la largeur de scène 3D et le profil acoustique pour casque
+settings-spatial-mode-off = Désactivé
+settings-spatial-audio-subtle = Subtil (Meier)
+settings-spatial-audio-studio = Studio (Moniteurs)
+settings-spatial-audio-front-stage = Scène frontale (HRTF)
+settings-spatial-audio-wide-stage = Surround 3D (Large)
+settings-spatial-audio-concert-hall = Salle de concert 3D
