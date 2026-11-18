@@ -92,7 +92,7 @@ jobs:
             dist/SHA256SUMS-linux.txt
 
   # ===========================================================================
-  # Windows Build (ZIP, MSIX, Inno Setup .exe, Portable .exe, and install-msix.bat)
+  # Windows Build (ZIP, MSIX, Inno Setup .exe, Portable .exe)
   # ===========================================================================
   build-windows:
     name: Build Windows Packages
@@ -142,9 +142,9 @@ jobs:
               throw "package-windows.ps1 bulunamadı!"
           }
 
-      - - name: Compile Inno Setup Installer (.exe)
-          uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-          with:
+      - name: Compile Inno Setup Installer (.exe)
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
           path: scripts/windows/ytmhybrid.iss
           options: /DSourcePath=..\..\target\release /DAppVersion=0.4.3 /DOutputDir=dist
 
@@ -314,7 +314,7 @@ jobs:
           - **AppImage**: `YTM_Hybrid-v0.4.3-x86_64.AppImage`
 
           ### macOS
-          - **Disk Image (.dmg)**: `YTM-Hybrid-0.4.3-macOS.dmg`
+          - **Disk Image (.dmg)**: `YTM-Hybrid-v0.4.3-x64.dmg`
 
           ---
 
